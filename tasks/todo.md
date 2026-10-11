@@ -2,7 +2,7 @@
 
 ## 0.0.1 release
 
-- [~] 发布 `0.0.1` source/developer preview（本地版本和 CHANGELOG 已统一；Git commit/tag/远程 release 待最终门禁后创建）
+- [x] 发布 `0.0.1` source/developer preview（commit `e48e118`、tag `v0.0.1`、GitHub release 已完成）
 - [x] 生成 `pnpm-lock.yaml` 并在 CI 使用 `--frozen-lockfile`
 
 - [x] 建立 TypeScript workspace、共享 schema 和测试命令（直接 Node/Vitest/tsc 证据已取得）

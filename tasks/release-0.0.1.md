@@ -17,22 +17,28 @@
 
 ## 发布前证据
 
-- [ ] `pnpm test`
-- [ ] `pnpm typecheck`
-- [ ] `pnpm build`
-- [ ] `pnpm lint`
-- [ ] `pnpm validate:contracts`
-- [ ] catalog/Skill validator
-- [ ] MCP schema validator
-- [ ] staged diff 无 secrets、Token、私钥和构建产物
-- [ ] GitHub remote、分支和 tag 目标已核对
+- [x] `pnpm test`
+- [x] `pnpm typecheck`
+- [x] `pnpm build`
+- [x] `pnpm lint`
+- [x] `pnpm validate:contracts`
+- [x] catalog/Skill validator
+- [x] MCP schema validator
+- [x] staged diff 无 secrets、Token、私钥和构建产物
+- [x] GitHub remote、分支和 tag 目标已核对
 
 ## 发布后核验
 
-- [ ] `git ls-remote` 可看到 `main` 和 `refs/tags/v0.0.1`
-- [ ] GitHub release `v0.0.1` 为公开状态，标题和 notes 与 CHANGELOG 一致
-- [ ] release 页面明确列出已知限制和下一阶段门禁
-- [ ] 本地 tag 指向发布提交
+- [x] `git ls-remote` 可看到 `main` 和 `refs/tags/v0.0.1`
+- [x] GitHub release `v0.0.1` 为公开状态，标题和 notes 与 CHANGELOG 一致
+- [x] release 页面明确列出已知限制和下一阶段门禁
+- [x] 本地 tag 指向发布提交 `e48e1181b3e922f9def3b47b3575e53807ccc262`
+
+远程核验：
+
+- CI（main）：https://github.com/cxszn/cxszn_menv/actions/runs/38147466982
+- CI（v0.0.1）：https://github.com/cxszn/cxszn_menv/actions/runs/38147497201
+- Release：https://github.com/cxszn/cxszn_menv/releases/tag/v0.0.1
 
 ## 回滚
 
