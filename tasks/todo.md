@@ -1,5 +1,16 @@
 # MEnv Task List
 
+## 0.0.2 Windows native (in progress)
+
+- [x] Windows 11 x64 toolchain preflight、Rust workspace compile/test
+- [x] HKCU-only PATH lease、conflict detection、shim adapter and live roundtrip
+- [x] Tauri current-user unsigned NSIS build/install/launch/uninstall smoke
+- [x] Ed25519 catalog verifier、fixed-host staging plan、size/SHA-256 fail-closed tests
+- [~] ConPTY native adapter (contract validation complete; real child I/O/Job Object evidence pending)
+- [ ] Real signed catalog/download/Zip-safe atomic PHP install and rollback
+- [ ] Tauri core service persistence/scan/provider wiring and Win11 user-visible acceptance
+- [ ] Sign installer and publish `v0.0.2` only after all W/U gates pass
+
 ## 0.0.1 release
 
 - [x] 发布 `0.0.1` source/developer preview（commit `e48e118`、tag `v0.0.1`、GitHub release 已完成）

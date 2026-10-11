@@ -114,7 +114,7 @@ export interface McpServerOptions {
 }
 
 export const MCP_PROTOCOL_VERSION = "2025-11-25";
-export const DEFAULT_SERVER_INFO = Object.freeze({ name: "cxszn-menv", version: "0.0.1" });
+export const DEFAULT_SERVER_INFO = Object.freeze({ name: "cxszn-menv", version: "0.0.2" });
 
 export const MCP_TOOL_DEFINITIONS: readonly McpToolDefinition[] = Object.freeze([
   {
@@ -176,7 +176,7 @@ export const MCP_TOOL_DEFINITIONS: readonly McpToolDefinition[] = Object.freeze(
         runtime_id: { type: "string" },
         path: { type: "string" },
         target_runtime_id: { type: "string" },
-        scope: { type: "string", enum: ["user", "process"] },
+        scope: { type: "string", enum: ["user"] },
         change: {
           type: "object",
           properties: {
@@ -187,7 +187,7 @@ export const MCP_TOOL_DEFINITIONS: readonly McpToolDefinition[] = Object.freeze(
             runtime_id: { type: "string" },
             path: { type: "string", minLength: 1 },
             target_runtime_id: { type: "string" },
-            scope: { type: "string", enum: ["user", "process"] },
+            scope: { type: "string", enum: ["user"] },
           },
           additionalProperties: false,
         },

@@ -1,0 +1,99 @@
+name: Windows NSIS bundle
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# This workflow builds an unsigned developer artifact. It does not create or
+# publish a GitHub Release. Code signing requires a separately reviewed,
+# protected certificate workflow.
+permissions:
+  contents: read
+
+jobs:
+  nsis:
+    name: Windows x64 NSIS (unsigned)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      RUST_BACKTRACE: '1'
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.16.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Set up Rust MSVC toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the unsigned NSIS installer
+        run: pnpm --dir apps/tauri exec tauri build --target x86_64-pc-windows-msvc --bundles nsis
+
+      - name: Collect and label unsigned installer
+        shell: pwsh
+        run: |
+          $candidateRoots = @(
+            (Join-Path $env:GITHUB_WORKSPACE 'target'),
+            (Join-Path $env:GITHUB_WORKSPACE 'apps/tauri/src-tauri/target')
+          )
+          $installers = @(
+            $candidateRoots |
+              Where-Object { Test-Path -LiteralPath $_ } |
+              ForEach-Object {
+                Get-ChildItem -LiteralPath $_ -Filter '*-setup.exe' -File -Recurse |
+                  Where-Object { $_.FullName -match '[\\/]bundle[\\/]nsis[\\/]' }
+              }
+          )
+          if ($installers.Count -ne 1) {
+            throw "Expected exactly one NSIS setup executable, found $($installers.Count)."
+          }
+
+          $artifactDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts/menv-windows-x64-nsis-unsigned'
+          New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
+          Copy-Item -LiteralPath $installers[0].FullName -Destination $artifactDir
+
+          $manifest = [ordered]@{
+            product = 'MEnv'
+            version = (Get-Content -Raw (Join-Path $env:GITHUB_WORKSPACE 'apps/tauri/package.json') | ConvertFrom-Json).version
+            platform = 'windows'
+            architecture = 'x86_64'
+            bundle = 'nsis'
+            signed = $false
+            signing = 'disabled-by-policy'
+            source = $installers[0].FullName.Replace($env:GITHUB_WORKSPACE, '').TrimStart('\', '/')
+            commit = $env:GITHUB_SHA
+          }
+          $manifest | ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $artifactDir 'bundle-manifest.json')
+          @'
+          MEnv Windows x64 NSIS installer (unsigned developer artifact)
+
+          This bundle is intentionally unsigned. It must not be presented as a
+          trusted production Windows release. A signed release requires a
+          separately reviewed certificate workflow and release approval gate.
+          '@ | Set-Content -Encoding utf8 (Join-Path $artifactDir 'UNSIGNED.txt')
+
+      - name: Upload unsigned installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: menv-windows-x64-nsis-unsigned
+          path: artifacts/menv-windows-x64-nsis-unsigned
+          if-no-files-found: error
+          retention-days: 14

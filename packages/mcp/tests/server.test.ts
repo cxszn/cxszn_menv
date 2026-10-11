@@ -74,13 +74,13 @@ describe("MCP JSON-RPC server", () => {
     const response = await server.handleLine(request(1, "initialize", {
       protocolVersion: "2025-11-25",
       capabilities: {},
-      clientInfo: { name: "test", version: "0.0.1" },
+      clientInfo: { name: "test", version: "0.0.2" },
     }));
     const parsed = JSON.parse(response ?? "null") as { result: { protocolVersion: string; capabilities: { tools: object }; serverInfo: object } };
 
     expect(parsed.result.protocolVersion).toBe("2025-11-25");
     expect(parsed.result.capabilities.tools).toEqual({});
-    expect(parsed.result.serverInfo).toMatchObject({ name: "cxszn-menv", version: "0.0.1" });
+    expect(parsed.result.serverInfo).toMatchObject({ name: "cxszn-menv", version: "0.0.2" });
 
     const toolsResponse = await server.handleLine(request(2, "tools/list"));
     const tools = (JSON.parse(toolsResponse ?? "null") as { result: { tools: Array<{ name: string }> } }).result.tools;

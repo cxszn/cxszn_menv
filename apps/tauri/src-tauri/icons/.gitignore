@@ -1,0 +1,6 @@
+# The Tauri icon generator emits mobile and Store assets. They are not part of
+# the Windows NSIS bundle and are intentionally regenerated outside this repo.
+android/
+ios/
+StoreLogo.png
+Square*Logo.png

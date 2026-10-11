@@ -29,7 +29,9 @@ const JSON_RPC_INTERNAL_ERROR = -32603;
 type RecordValue = Record<string, unknown>;
 
 const RUNTIME_FAMILIES = new Set(["php", "node", "mysql", "python"]);
-const ENVIRONMENT_SCOPES = new Set(["user", "process"]);
+// Process/session environment injection belongs to the host-only ConPTY
+// surface. It is not exposed through MCP until that adapter has real evidence.
+const ENVIRONMENT_SCOPES = new Set(["user"]);
 
 const hasOwn = (value: object, key: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(value, key);
 

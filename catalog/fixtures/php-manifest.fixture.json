@@ -8,7 +8,7 @@
   "fixture_note": "TEST ONLY: metadata fixture; it has no binary payload, download location, or signature.",
   "signature": null,
   "policy": {
-    "min_app_version": "0.0.1",
+    "min_app_version": "0.0.2",
     "revoked_artifact_ids": []
   },
   "artifacts": [

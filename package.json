@@ -1,7 +1,7 @@
 {
   "name": "cxszn-menv",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Windows-first multi-runtime development environment manager",
   "packageManager": "pnpm@11.16.0",
   "scripts": {

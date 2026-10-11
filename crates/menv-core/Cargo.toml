@@ -7,3 +7,6 @@ edition.workspace = true
 cxszn-menv-application = { path = "../application" }
 cxszn-menv-domain = { path = "../domain" }
 cxszn-menv-ports = { path = "../ports" }
+
+[target.'cfg(windows)'.dependencies]
+cxszn-menv-platform-windows = { path = "../platform-windows" }

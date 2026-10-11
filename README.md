@@ -7,6 +7,9 @@ MEnv 是 Windows 11 优先的多运行时开发环境管理器。`0.0.1` 是首�
 这是 `0.x` 预览 API，公共 JSON、CLI 和 MCP schema 仍可能在后续版本发生不兼容调整。
 安全问题报告方式见 [SECURITY.md](./SECURITY.md)。
 
+`0.0.2` Windows 原生工作目前仍是 unreleased candidate；真实 signed catalog、
+ConPTY child I/O、PHP 生命周期接线和签名安装包通过前，不会创建正式 release。
+
 ## 已实现的边界
 
 - PHP 探测使用绝对本地路径，解析版本、x64/x86、TS/NTS、`php --ini` 和健康诊断；支持 5.6–8.5 的版本模型，未验证的组合不会被标成可下载。

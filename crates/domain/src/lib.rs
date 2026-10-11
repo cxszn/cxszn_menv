@@ -333,10 +333,7 @@ pub fn can_transition_activation(from: &Activation, to: &Activation) -> bool {
     )
 }
 
-pub fn validate_activation_transition(
-    from: Activation,
-    to: Activation,
-) -> Result<(), DomainError> {
+pub fn validate_activation_transition(from: Activation, to: Activation) -> Result<(), DomainError> {
     if can_transition_activation(&from, &to) {
         Ok(())
     } else {

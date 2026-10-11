@@ -3,7 +3,7 @@
 //! Implementations live in platform-specific crates.  Keeping these traits
 //! free from Tauri and Windows types lets CLI, MCP, and desktop share behavior.
 
-use cxszn_menv_domain::{EnvironmentSnapshot, RuntimeFamily, RuntimeRecord, RuntimeId};
+use cxszn_menv_domain::{EnvironmentSnapshot, RuntimeFamily, RuntimeId, RuntimeRecord};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
@@ -61,6 +61,10 @@ pub trait EnvironmentStore: Send + Sync {
 pub struct PathLease {
     pub lease_id: String,
     pub shim_directory: PathBuf,
+    /// The already-verified runtime executable that the app-owned shim must
+    /// target. `None` is allowed only for contract fakes that manage PATH
+    /// without publishing a runtime shim.
+    pub target_executable: Option<PathBuf>,
 }
 
 /// User-level PATH lease adapter. It must preserve unknown entries and reject
@@ -76,11 +80,7 @@ pub trait UserPathStore: Send + Sync {
 /// Process probing is explicit and bounded. Shell command strings are not part
 /// of this interface; adapters receive an executable and argv separately.
 pub trait ProcessProbe: Send + Sync {
-    fn run_version_probe(
-        &self,
-        executable: &Path,
-        args: &[String],
-    ) -> Result<String, PortError>;
+    fn run_version_probe(&self, executable: &Path, args: &[String]) -> Result<String, PortError>;
 }
 
 /// Minimal in-memory store for contract tests and the Tauri shell skeleton.
@@ -126,7 +126,9 @@ mod tests {
     #[test]
     fn provider_contract_is_read_only() {
         let provider = NoopProvider;
-        let records = provider.scan(&ScanRequest::default()).expect("scan succeeds");
+        let records = provider
+            .scan(&ScanRequest::default())
+            .expect("scan succeeds");
         assert!(records.is_empty());
         assert_eq!(provider.family(), RuntimeFamily::Php);
     }

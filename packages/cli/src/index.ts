@@ -212,6 +212,9 @@ function changeInput(options: ParsedOptions, action?: string): Record<string, un
       input[key] = value;
     }
   }
+  if (input.scope === 'process') {
+    throw new CliInputError('UNSUPPORTED_SCOPE', 'Process scope is host-only until ConPTY/session environment injection is verified.');
+  }
   return input;
 }
 
@@ -382,6 +385,7 @@ function errorExitCode(error: ErrorEnvelope['error']): number {
     error.code === 'SIGNATURE_INVALID' ||
     error.code === 'UNSUPPORTED_ARTIFACT' ||
     error.code === 'UNSUPPORTED_RUNTIME' ||
+    error.code === 'UNSUPPORTED_SCOPE' ||
     error.code === 'UNAVAILABLE' ||
     error.code === 'CATALOG_REJECTED'
   ) {

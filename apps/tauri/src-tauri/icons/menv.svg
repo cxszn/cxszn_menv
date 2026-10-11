@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>MEnv</title>
+  <rect width="512" height="512" rx="112" fill="#101820"/>
+  <path d="M112 362V150h54l90 112 90-112h54v212h-54V236l-67 83h-46l-67-83v126z" fill="#64d8cb"/>
+  <circle cx="408" cy="104" r="24" fill="#f4c95d"/>
+</svg>

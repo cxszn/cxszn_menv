@@ -4,6 +4,17 @@
 //! registry/PATH, ConPTY, and process probing code belongs here and must stay
 //! behind the `RuntimeProvider`, `UserPathStore`, and `ProcessProbe` ports.
 
+pub mod conpty;
+pub mod path;
+pub mod shim;
+pub mod store;
+
+pub use path::{
+    merge_app_owned_entry, path_hash, validate_local_windows_path, WindowsUserPathStore,
+};
+pub use shim::{ShimActivation, ShimManager, ShimTarget, PHP_SHIM_NAME};
+pub use store::JsonEnvironmentStore;
+
 use cxszn_menv_domain::{RuntimeFamily, RuntimeRecord};
 use cxszn_menv_ports::{PortError, RuntimeProvider, ScanRequest, VerifyPathRequest};
 

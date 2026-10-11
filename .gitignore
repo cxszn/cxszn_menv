@@ -16,3 +16,5 @@ target/
 catalog/private/
 runtime-cache/
 .tmp-menv-lighthouse.json
+artifacts/
+apps/tauri/src-tauri/gen/

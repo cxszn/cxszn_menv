@@ -2,6 +2,32 @@
 
 All notable changes to MEnv are documented here.
 
+## [0.0.2] - Unreleased
+
+Windows native work in progress. This entry is not a release declaration.
+
+### Added
+
+- Rust application plan/apply boundary with SHA-256 plan/state binding, expiry,
+  typed confirmation token, idempotency and rollback on PATH persistence failure.
+- HKCU-only PATH lease with external-entry preservation, concurrent-change refusal,
+  `WM_SETTINGCHANGE`, app-owned PHP hard-link shim and Windows 11 x64 roundtrip test.
+- Windows ConPTY adapter contract with absolute executable/argv/cwd validation,
+  explicit environment, synchronous I/O workers, timeout and output limits.
+- Ed25519 catalog verifier, fixed official-host policy, staging path planning,
+  artifact size/SHA-256 checks and negative tests.
+- Tauri current-user NSIS configuration, Windows bundle workflow and unsigned
+  install/launch/uninstall smoke evidence.
+
+### Known limitations
+
+- No production signed catalog, downloader, Zip-safe extractor, atomic PHP
+  registration or journaled install rollback is shipped yet.
+- ConPTY real child I/O and Job Object process-tree evidence is still pending.
+- The local installer is unsigned and must not be treated as a trusted release.
+- Tauri still uses an empty persistence/provider composition for runtime scan;
+  the native PATH/shim adapter is not yet a complete PHP lifecycle.
+
 ## [0.0.1] - 2026-10-11
 
 首个开发预览版本。此版本发布的是可审查的核心契约和开发骨架，不是可在

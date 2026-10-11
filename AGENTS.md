@@ -62,3 +62,17 @@
 - 当前 MCP 公开变更动作只有 `runtime.add`、`register_path`（兼容别名）、`enable`、`disable`、`switch`；下载 artifact、安装、任意 URL 和旧的 `runtime.enable/runtime.disable` 不得重新暴露，除非同时补齐 core、schema、Skill、测试和 ADR。
 - 当前桌面端仍使用 mock service；接入 Tauri 前必须保持 GUI/CLI/MCP 都调用同一个 application service，并补充 Windows 11 用户可见验收证据。
 - 真实 Rust/Cargo/MSVC、Windows 注册表/HKCU PATH、shim、ConPTY、下载签名/解压安全和实机验收未验证时，交付说明必须逐项标记为未完成或未验证。
+
+## 10. 0.0.2 Windows 原生切片状态
+
+- 已取得当前 Windows 11 x64 主机上的 Rust workspace 编译/测试、HKCU PATH +
+  hard-link shim roundtrip、Tauri NSIS current-user unsigned 安装/启动/卸载冒烟证据。
+- ConPTY 当前只有结构化参数校验、同步管道、超时/输出上限和 fail-closed 代码；
+  真实 child I/O/Job Object 证据仍未通过，不得称为完成。
+- catalog 当前完成 Ed25519/schema/固定来源/大小/SHA-256/staging plan verifier；
+  没有真实签名生产 catalog、下载器、Zip 安全解压和原子 runtime install。
+- Tauri installer 当前为 unsigned developer artifact；没有签名证书时不得发布为
+  可信 Windows 安装版。
+- 0.0.2 不能在缺少真实 signed catalog、ConPTY W/U 证据、完整安装回滚和许可证
+  决策时创建正式 release；参见 `tasks/plan-0.0.2-windows.md` 与
+  `tasks/windows11-acceptance.md`。
