@@ -1,0 +1,392 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cxszn-menv:schema:runtime-catalog:1",
+  "title": "MEnv runtime catalog",
+  "description": "Signed runtime metadata consumed by the MEnv catalog verifier. Binary payloads and private signing material are never part of this file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "catalog_id",
+    "catalog_revision",
+    "generated_at",
+    "expires_at",
+    "fixture",
+    "signature",
+    "policy",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "catalog_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$"
+    },
+    "catalog_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "fixture": {
+      "type": "boolean"
+    },
+    "fixture_note": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 240
+    },
+    "signature": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/catalogSignature"
+        }
+      ]
+    },
+    "policy": {
+      "$ref": "#/$defs/catalogPolicy"
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/runtimeArtifact"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "fixture": {
+            "const": true
+          }
+        },
+        "required": ["fixture"]
+      },
+      "then": {
+        "required": ["fixture_note"],
+        "properties": {
+          "signature": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "fixture": {
+            "const": false
+          }
+        },
+        "required": ["fixture"]
+      },
+      "then": {
+        "required": ["signature"],
+        "properties": {
+          "signature": {
+            "$ref": "#/$defs/catalogSignature"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "catalogSignature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "key_id", "value"],
+      "properties": {
+        "algorithm": {
+          "enum": ["ed25519", "ecdsa-p256-sha256"]
+        },
+        "key_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43,256}$"
+        }
+      }
+    },
+    "catalogPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min_app_version", "revoked_artifact_ids"],
+      "properties": {
+        "min_app_version": {
+          "$ref": "#/$defs/semver"
+        },
+        "revoked_artifact_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"
+          }
+        }
+      }
+    },
+    "runtimeArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "runtime_family",
+        "version",
+        "release_channel",
+        "lifecycle",
+        "platform",
+        "arch",
+        "thread_safety",
+        "package_format",
+        "source",
+        "file_name",
+        "size_bytes",
+        "sha256",
+        "entrypoint",
+        "root_layout",
+        "dependencies",
+        "flags"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"
+        },
+        "runtime_family": {
+          "enum": ["php", "node", "mysql", "python"]
+        },
+        "version": {
+          "$ref": "#/$defs/semver"
+        },
+        "release_channel": {
+          "enum": ["stable", "beta", "nightly", "archival"]
+        },
+        "lifecycle": {
+          "enum": ["supported", "eol", "archival", "revoked"]
+        },
+        "platform": {
+          "const": "windows"
+        },
+        "arch": {
+          "enum": ["x86_64", "x86", "arm64"]
+        },
+        "thread_safety": {
+          "enum": ["ts", "nts", "not_applicable"]
+        },
+        "package_format": {
+          "enum": ["zip", "tar_gz", "installer", "directory"]
+        },
+        "source": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/officialSource"
+            },
+            {
+              "$ref": "#/$defs/fixtureSource"
+            }
+          ]
+        },
+        "file_name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967296
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "entrypoint": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}\\.exe$"
+        },
+        "root_layout": {
+          "enum": ["archive_root", "direct", "nested"]
+        },
+        "dependencies": {
+          "$ref": "#/$defs/dependencies"
+        },
+        "flags": {
+          "$ref": "#/$defs/artifactFlags"
+        },
+        "published_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "deprecated_after": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "lifecycle": {
+                "enum": ["eol", "archival"]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "flags": {
+                "properties": {
+                  "legacy": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "lifecycle": {
+                "const": "archival"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "flags": {
+                "properties": {
+                  "archival": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "lifecycle": {
+                "const": "revoked"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "flags": {
+                "properties": {
+                  "archival": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "officialSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "provider", "host", "artifact_path"],
+      "properties": {
+        "kind": {
+          "const": "official"
+        },
+        "provider": {
+          "enum": ["php.net", "nodejs.org", "mysql.com", "python.org", "other"]
+        },
+        "host": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$"
+        },
+        "artifact_path": {
+          "type": "string",
+          "pattern": "^/[A-Za-z0-9][A-Za-z0-9._~:/+-]*$"
+        },
+        "redirect_hosts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$"
+          }
+        }
+      }
+    },
+    "fixtureSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "fixture_id", "not_for_download"],
+      "properties": {
+        "kind": {
+          "const": "fixture"
+        },
+        "fixture_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$"
+        },
+        "not_for_download": {
+          "const": true
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime", "extensions"],
+      "properties": {
+        "runtime": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,63}$"
+          }
+        },
+        "extensions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,63}$"
+          }
+        }
+      }
+    },
+    "artifactFlags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["legacy", "archival", "public_listener_default"],
+      "properties": {
+        "legacy": {
+          "type": "boolean"
+        },
+        "archival": {
+          "type": "boolean"
+        },
+        "public_listener_default": {
+          "const": false
+        }
+      }
+    }
+  }
+}

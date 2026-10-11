@@ -1,0 +1,9 @@
+[package]
+name = "cxszn-menv-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+cxszn-menv-application = { path = "../application" }
+cxszn-menv-domain = { path = "../domain" }
+cxszn-menv-ports = { path = "../ports" }

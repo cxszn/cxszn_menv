@@ -1,0 +1,8 @@
+[package]
+name = "cxszn-menv-domain"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true

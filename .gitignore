@@ -1,0 +1,18 @@
+node_modules/
+# This repository uses the pnpm workspace; do not commit npm lockfiles.
+package-lock.json
+dist/
+coverage/
+.turbo/
+.vite/
+target/
+*.db
+*.db-wal
+*.db-shm
+*.log
+.env
+.env.*
+!*.env.example
+catalog/private/
+runtime-cache/
+.tmp-menv-lighthouse.json

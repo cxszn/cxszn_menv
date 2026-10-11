@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  typescript:
+    name: TypeScript and contract checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.16.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Run type checks and builds
+        run: pnpm typecheck && pnpm build
+
+      - name: Validate catalog and Skill contracts
+        shell: pwsh
+        run: ./.agents/skills/cxszn-menv-operator/scripts/validate-contract.ps1 -RepoRoot .
+
+      - name: Validate MCP schemas
+        run: pnpm --filter @cxszn-menv/mcp validate-contracts

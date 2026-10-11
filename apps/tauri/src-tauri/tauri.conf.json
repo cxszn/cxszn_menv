@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MEnv",
+  "version": "0.0.1",
+  "identifier": "com.cxszn.menv",
+  "build": {
+    "beforeDevCommand": "pnpm --dir ../desktop dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "pnpm --dir ../desktop build",
+    "frontendDist": "../../desktop/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "MEnv",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 920,
+        "minHeight": 600,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:1420 ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": false,
+    "targets": "all",
+    "createUpdaterArtifacts": false
+  }
+}

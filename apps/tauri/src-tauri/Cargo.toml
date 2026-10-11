@@ -1,0 +1,22 @@
+[package]
+name = "cxszn-menv-tauri"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "cxszn_menv_tauri_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "cxszn-menv"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.0.0", features = [] }
+
+[dependencies]
+cxszn-menv-core = { path = "../../../crates/menv-core" }
+serde.workspace = true
+serde_json.workspace = true
+tauri = { version = "2.0.0", features = [] }
+uuid.workspace = true

@@ -1,0 +1,11 @@
+[package]
+name = "cxszn-menv-application"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+cxszn-menv-domain = { path = "../domain" }
+cxszn-menv-ports = { path = "../ports" }
+serde.workspace = true
+thiserror.workspace = true
+uuid.workspace = true

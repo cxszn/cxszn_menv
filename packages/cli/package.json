@@ -1,0 +1,25 @@
+{
+  "name": "@cxszn-menv/cli",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Protocol-only command line adapter for MEnv",
+  "bin": {
+    "menv": "./dist/bin.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@cxszn-menv/core": "workspace:*",
+    "@cxszn-menv/mcp": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.1"
+  }
+}

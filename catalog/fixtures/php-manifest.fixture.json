@@ -1,0 +1,76 @@
+{
+  "schema_version": "1",
+  "catalog_id": "fixture-php-windows",
+  "catalog_revision": 1,
+  "generated_at": "2026-01-01T00:00:00Z",
+  "expires_at": "2099-01-01T00:00:00Z",
+  "fixture": true,
+  "fixture_note": "TEST ONLY: metadata fixture; it has no binary payload, download location, or signature.",
+  "signature": null,
+  "policy": {
+    "min_app_version": "0.0.1",
+    "revoked_artifact_ids": []
+  },
+  "artifacts": [
+    {
+      "artifact_id": "fixture-php-8.3.0-nts-x64",
+      "runtime_family": "php",
+      "version": "8.3.0",
+      "release_channel": "stable",
+      "lifecycle": "supported",
+      "platform": "windows",
+      "arch": "x86_64",
+      "thread_safety": "nts",
+      "package_format": "zip",
+      "source": {
+        "kind": "fixture",
+        "fixture_id": "php-8.3.0-nts-x64",
+        "not_for_download": true
+      },
+      "file_name": "fixture-php-8.3.0-nts-x64.zip",
+      "size_bytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "entrypoint": "php.exe",
+      "root_layout": "archive_root",
+      "dependencies": {
+        "runtime": [],
+        "extensions": []
+      },
+      "flags": {
+        "legacy": false,
+        "archival": false,
+        "public_listener_default": false
+      }
+    },
+    {
+      "artifact_id": "fixture-php-5.6.40-nts-x64",
+      "runtime_family": "php",
+      "version": "5.6.40",
+      "release_channel": "archival",
+      "lifecycle": "archival",
+      "platform": "windows",
+      "arch": "x86_64",
+      "thread_safety": "nts",
+      "package_format": "zip",
+      "source": {
+        "kind": "fixture",
+        "fixture_id": "php-5.6.40-nts-x64",
+        "not_for_download": true
+      },
+      "file_name": "fixture-php-5.6.40-nts-x64.zip",
+      "size_bytes": 1,
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "entrypoint": "php.exe",
+      "root_layout": "archive_root",
+      "dependencies": {
+        "runtime": [],
+        "extensions": []
+      },
+      "flags": {
+        "legacy": true,
+        "archival": true,
+        "public_listener_default": false
+      }
+    }
+  ]
+}
