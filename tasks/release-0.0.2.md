@@ -28,4 +28,4 @@ signed catalog/install、ConPTY child I/O、Job Object、PHP provider/Tauri
 - [ ] installer Authenticode signing、证书链和签名验收。
 - [ ] 普通用户完整 GUI/U 级验收和升级/回滚验收。
 
-在全部阻断项关闭前，不创建 `v0.0.2` tag/release。`r`n
+在全部阻断项关闭前，不创建 `v0.0.2` tag/release。

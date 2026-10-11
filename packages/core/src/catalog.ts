@@ -543,4 +543,4 @@ export function verifyStagedArtifact(plan: ArtifactDownloadPlan, bytes: Uint8Arr
   if (bytes.byteLength !== plan.expectedSizeBytes) throw new CoreError('ARTIFACT_SIZE_MISMATCH', `Downloaded artifact size ${bytes.byteLength} does not match the catalog size ${plan.expectedSizeBytes}.`);
   const digest = createHash('sha256').update(bytes).digest('hex');
   if (digest !== plan.expectedSha256.toLowerCase()) throw new CoreError('ARTIFACT_HASH_MISMATCH', 'Downloaded artifact SHA-256 does not match the catalog.');
-}`r`n
+}

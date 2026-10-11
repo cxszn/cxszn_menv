@@ -196,4 +196,4 @@ describe('signed runtime catalog', () => {
       architecture: 'x64',
     })).toThrowError(expect.objectContaining({ code: 'ARTIFACT_SOURCE_NOT_ALLOWED' }));
   });
-});`r`n
+});

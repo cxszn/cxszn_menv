@@ -42,4 +42,4 @@ rollback, and audit behavior diverge.
 - Win11 x64 clean-machine install, launch, PATH lease/shim, ConPTY, rollback and
   uninstall evidence.
 - Negative tests for registry concurrency, path traversal/reparse, invalid
-  signatures, redirect/size/hash mismatch, pipe deadlock, timeout and output cap.`r`n
+  signatures, redirect/size/hash mismatch, pipe deadlock, timeout and output cap.
