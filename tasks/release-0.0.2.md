@@ -18,6 +18,17 @@ signed catalog/install、ConPTY child I/O、Job Object、PHP provider/Tauri
 - [x] unsigned NSIS current-user installer build。
 - [x] unsigned installer install/launch/uninstall smoke。
 
+远程 CI：
+
+- TypeScript/contracts: https://github.com/cxszn/cxszn_menv/actions/runs/38159501967
+- Windows x64 NSIS unsigned bundle: https://github.com/cxszn/cxszn_menv/actions/runs/38159501885
+
+本机 unsigned installer 证据：
+
+- `target/x86_64-pc-windows-msvc/release/bundle/nsis/MEnv_0.0.2_x64-setup.exe`
+- SHA-256: `d20f0271374b8ef32a7a665836762e2657b2c6f0528183d4b8d9dd4a0f47e41c`
+- Authenticode: `NotSigned`
+
 ## 阻断项
 
 - [ ] ConPTY 真实 child I/O 输出和进程树回收在 Win11 主机通过。
