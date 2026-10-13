@@ -10,7 +10,9 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "build": "pnpm -r --if-present build",
     "lint": "pnpm -r --if-present lint",
-    "validate:contracts": "pnpm --filter @cxszn-menv/mcp validate-contracts"
+    "validate:contracts": "pnpm --filter @cxszn-menv/mcp validate-contracts",
+    "catalog:generate": "node scripts/catalog/generate-php-catalog.mjs",
+    "catalog:verify": "pnpm --filter @cxszn-menv/core build && node scripts/catalog/verify-catalog.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

@@ -1,0 +1,16 @@
+{
+  "command": "cancel_php_install",
+  "valid": { "planId": "00000000-0000-4000-8000-000000000001" },
+  "invalid": [
+    { "name": "missing plan id", "remove": "planId" },
+    { "name": "empty plan id", "set": { "planId": "" } },
+    { "name": "null plan id", "set": { "planId": null } },
+    { "name": "non-string plan id", "set": { "planId": 42 } },
+    { "name": "unexpected argument", "set": { "force": true } }
+  ],
+  "missingCode": "PLAN_REQUIRED",
+  "cancelledApplyCode": "PLAN_CANCELLED",
+  "startedOrCompletedCode": "OPERATION_NOT_CANCELLABLE",
+  "success": { "schema_version": "1", "request_id": "00000000-0000-4000-8000-000000000002", "ok": true, "result": null },
+  "statuses": ["pending", "started", "cancelled"]
+}

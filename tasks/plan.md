@@ -2,7 +2,7 @@
 
 当前执行切片已交付，并作为 `0.0.1` 开发预览候选：Node/TypeScript 核心、CLI、stdio MCP、PHP 扫描/手动路径登记/用户级 lease 编排、签名 catalog schema/fixture、Canonical Skill 和 Vue 桌面 UI 原型；Rust/Tauri 已建立同契约宿主骨架。
 
-这不是“Windows 端到端完成”声明。当前核心默认使用 JSON 适配器，同时提供了 Node 22.5+/24 的可选 SQLite/WAL text adapter；完整的三表迁移、journal/锁/崩溃恢复、Windows 注册表/HKCU PATH、shim、ConPTY、下载/签名验证/原子安装和 Tauri 命令接线仍属于后续切片，见 `tasks/todo.md`。
+这不是“Windows 端到端完成”声明。Rust/Tauri 环境状态已切换到 bundled SQLite/WAL，并保留旧 JSON 状态作为首次迁移源；TypeScript core 仍提供 JSON/Node SQLite text adapter。完整的 plans/journal 统一事务、跨文件崩溃恢复、Windows 注册表/HKCU PATH、shim、ConPTY、下载/签名验证/原子安装和 Tauri 用户验收仍属于后续切片，见 `tasks/todo.md`。
 
 ## 验收门槛
 

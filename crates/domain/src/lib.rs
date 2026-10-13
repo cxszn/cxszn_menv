@@ -248,9 +248,13 @@ pub enum EnvironmentScope {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum EnvironmentChangeAction {
+    Register,
+    Install,
     Enable,
     Disable,
     Switch,
+    #[serde(rename = "backup-ini")]
+    BackupIni,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -258,6 +262,8 @@ pub enum EnvironmentChangeAction {
 pub struct OperationRecord {
     pub operation_id: String,
     pub plan_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan_hash: Option<String>,
     pub idempotency_key: String,
     pub action: EnvironmentChangeAction,
     pub runtime_id: RuntimeId,

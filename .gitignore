@@ -17,4 +17,8 @@ catalog/private/
 runtime-cache/
 .tmp-menv-lighthouse.json
 artifacts/
+.omo/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
 apps/tauri/src-tauri/gen/

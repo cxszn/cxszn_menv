@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
     "vue": "^3.5.22"
   },
   "devDependencies": {

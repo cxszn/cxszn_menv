@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cxszn-menv.local/schema/native-change-plan-v1",
+  "title": "MEnv native ChangePlan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["planId", "planHash", "request", "requiresConfirmation", "createdAtEpochSeconds", "expiresAtEpochSeconds", "snapshotHash"],
+  "properties": {
+    "planId": { "type": "string", "format": "uuid" },
+    "planHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "snapshotHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "requiresConfirmation": { "type": "boolean", "description": "Display metadata; all native writes require a valid token regardless of this value." },
+    "createdAtEpochSeconds": { "type": "integer", "minimum": 0 },
+    "expiresAtEpochSeconds": { "type": "integer", "minimum": 0 },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "family", "runtimeId", "targetRuntimeId", "idempotencyKey", "actor"],
+      "properties": {
+        "action": { "enum": ["register", "install", "enable", "disable", "switch", "backup-ini"] },
+        "family": { "enum": ["php", "node", "mysql", "python"] },
+        "runtimeId": { "type": ["string", "null"] },
+        "targetRuntimeId": { "type": ["string", "null"] },
+        "idempotencyKey": { "type": "string", "minLength": 1 },
+        "actor": { "type": "string", "minLength": 1 }
+      }
+    },
+    "backupSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" }
+      }
+    }
+  },
+  "allOf": [{
+    "if": { "properties": { "request": { "properties": { "action": { "const": "backup-ini" } }, "required": ["action"] } } },
+    "then": { "required": ["backupSource"], "properties": { "request": { "properties": { "family": { "const": "php" }, "runtimeId": { "type": "string", "minLength": 1 }, "targetRuntimeId": { "type": "null" } } } } }
+  }]
+}

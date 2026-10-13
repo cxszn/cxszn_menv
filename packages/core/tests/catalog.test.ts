@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { generateKeyPairSync, sign } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import {
   CoreError,
   createArtifactDownloadPlan,
@@ -63,6 +66,31 @@ function signedCatalog() {
 }
 
 describe('signed runtime catalog', () => {
+  it('verifies the checked-in official PHP catalog against its trust root', () => {
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../');
+    const trustRoot = JSON.parse(readFileSync(resolve(root, 'catalog/trust/runtime-root.json'), 'utf8')) as CatalogTrustRoot;
+    const catalog = JSON.parse(readFileSync(resolve(root, 'catalog/manifests/php-windows-official.json'), 'utf8')) as SignedRuntimeCatalog;
+    const verified = verifyCatalogSignature(catalog, {
+      trustRoot,
+      appVersion: '0.0.2',
+      now: new Date('2026-10-12T12:00:00.000Z'),
+    });
+
+    expect(verified.keyId).toBe('cxszn-menv-runtime-dev-2026');
+    expect(verified.catalog.fixture).toBe(false);
+    expect(verified.catalog.artifacts).toHaveLength(7);
+    expect(verified.catalog.artifacts.every((artifact) => artifact.source.kind === 'official')).toBe(true);
+    expect(verified.catalog.artifacts.every((artifact) => artifact.source.kind === 'official' && artifact.source.host === 'downloads.php.net')).toBe(true);
+    expect(verified.catalog.artifacts.find((artifact) => artifact.version === '7.4.33')).toMatchObject({
+      lifecycle: 'eol',
+      flags: { legacy: true },
+    });
+    expect(createArtifactDownloadPlan(verified, 'php-8.5.11-nts-x64', {
+      stagingRoot: 'C:\\Users\\demo\\AppData\\Local\\cxszn-menv\\staging',
+      architecture: 'x64',
+    }).expectedSizeBytes).toBe(36_048_897);
+  });
+
   it('verifies an Ed25519 catalog and rejects a payload tamper', () => {
     const { catalog, trustRoot } = signedCatalog();
     const verified = verifyCatalogSignature(catalog, {

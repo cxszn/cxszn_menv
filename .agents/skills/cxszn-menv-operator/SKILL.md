@@ -20,9 +20,11 @@ credentials.
 2. For a path supplied by a user, call `menv_verify_runtime_path`. Treat the
    response as read-only evidence; never copy, overwrite, or delete that path.
 3. For registration, activation, deactivation, or PATH change, call
-   `menv_plan_environment_change` first. (Catalog installation is not exposed
-   until its signed downloader is implemented.) Present the plan summary,
-   affected runtime, scope, and rollback information to the user.
+   `menv_plan_environment_change` first. The signed PHP catalog and installer
+   are available through the Tauri desktop confirmation flow; MCP/Skill callers
+   must not invent a download URL or bypass that host-owned install plan.
+   Present the plan summary, affected runtime, scope, and rollback information
+   to the user.
 4. Continue only after the user interface returns a short-lived confirmation
    token bound to that exact plan. A natural-language approval, a guessed
    token, or a `confirm=true` argument is not sufficient.
@@ -50,6 +52,8 @@ confirmation token:
 
 Catalog entries marked `fixture`, `archival`, `eol`, `revoked`, or
 `unavailable` must not be presented as downloadable supported artifacts.
+The signed PHP catalog may be installed by the desktop host; MCP remains
+metadata-only and does not expose arbitrary artifact download/install tools.
 
 ## Write-operation rules
 
@@ -70,7 +74,9 @@ Catalog entries marked `fixture`, `archival`, `eol`, `revoked`, or
 ## Error handling
 
 Treat `CONFIRMATION_REQUIRED`, `STALE_PLAN`, `IDEMPOTENCY_CONFLICT`,
-`RESOURCE_BUSY`, `CATALOG_REJECTED`, `PATH_CONFLICT`, and `UNAVAILABLE` as
+`RESOURCE_BUSY`, `OPERATION_BUSY`, `CATALOG_REJECTED`, `HASH_MISMATCH`,
+`SIZE_MISMATCH`, `ARCHIVE_REJECTED`, `DOWNLOAD_FAILED`, `PATH_CONFLICT`, and
+`UNAVAILABLE` as
 actionable states, not as permission to retry with broader privileges. Use the
 `retryable` flag and `next_actions` from the response. Never bypass a failed
 signature, expiry, revocation, path, archive, or hash check.

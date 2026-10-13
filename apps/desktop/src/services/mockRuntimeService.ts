@@ -1,6 +1,9 @@
 import type {
   ActivityEntry,
   EnvironmentSnapshot,
+  RuntimeCatalogArtifact,
+  RuntimeInstallPlan,
+  RuntimeRegistrationPlan,
   RuntimeRecord,
   RuntimeService,
 } from '../types/runtime';
@@ -98,8 +101,108 @@ const initialActivities: ActivityEntry[] = [
   },
 ];
 
+const initialPhpCatalog: RuntimeCatalogArtifact[] = [
+  {
+    artifactId: 'php-8.2.34-nts-x64',
+    family: 'php',
+    version: '8.2.34',
+    architecture: 'x64',
+    threadSafety: 'nts',
+    lifecycle: 'supported',
+    legacy: false,
+    archival: false,
+    available: true,
+    installed: false,
+    fileName: 'php-8.2.34-nts-Win32-vs16-x64.zip',
+  },
+  {
+    artifactId: 'php-8.3.35-nts-x64',
+    family: 'php',
+    version: '8.3.35',
+    architecture: 'x64',
+    threadSafety: 'nts',
+    lifecycle: 'supported',
+    legacy: false,
+    archival: false,
+    available: true,
+    installed: false,
+    fileName: 'php-8.3.35-nts-Win32-vs16-x64.zip',
+  },
+  {
+    artifactId: 'php-8.4.26-nts-x64',
+    family: 'php',
+    version: '8.4.26',
+    architecture: 'x64',
+    threadSafety: 'nts',
+    lifecycle: 'supported',
+    legacy: false,
+    archival: false,
+    available: true,
+    installed: false,
+    fileName: 'php-8.4.26-nts-Win32-vs17-x64.zip',
+  },
+  {
+    artifactId: 'php-8.5.11-nts-x64',
+    family: 'php',
+    version: '8.5.11',
+    architecture: 'x64',
+    threadSafety: 'nts',
+    lifecycle: 'supported',
+    legacy: false,
+    archival: false,
+    available: true,
+    installed: false,
+    fileName: 'php-8.5.11-nts-Win32-vs17-x64.zip',
+  },
+  {
+    artifactId: 'php-8.1.34-nts-x64',
+    family: 'php',
+    version: '8.1.34',
+    architecture: 'x64',
+    threadSafety: 'nts',
+    lifecycle: 'eol',
+    legacy: true,
+    archival: false,
+    available: true,
+    installed: false,
+    fileName: 'php-8.1.34-nts-Win32-vs16-x64.zip',
+  },
+  {
+    artifactId: 'php-8.0.30-nts-x64',
+    family: 'php',
+    version: '8.0.30',
+    architecture: 'x64',
+    threadSafety: 'nts',
+    lifecycle: 'eol',
+    legacy: true,
+    archival: false,
+    available: true,
+    installed: false,
+    fileName: 'php-8.0.30-nts-Win32-vs16-x64.zip',
+  },
+  {
+    artifactId: 'php-7.4.33-nts-x64',
+    family: 'php',
+    version: '7.4.33',
+    architecture: 'x64',
+    threadSafety: 'nts',
+    lifecycle: 'eol',
+    legacy: true,
+    archival: false,
+    available: true,
+    installed: false,
+    fileName: 'php-7.4.33-nts-Win32-vc15-x64.zip',
+  },
+];
+
 export function createMockRuntimeService(): RuntimeService {
   const plans = new Map<string, string>();
+  const installPlans = new Map<string, RuntimeCatalogArtifact>();
+  const cancelledInstallPlans = new Set<string>();
+  const completedInstallPlans = new Set<string>();
+  const registerPlans = new Map<string, RuntimeRecord>();
+  const iniBackupPlans = new Map<string, string>();
+  let catalog = structuredClone(initialPhpCatalog);
   let snapshot: EnvironmentSnapshot = {
     platform: 'windows',
     platformLabel: 'Windows 11 · 当前用户',
@@ -173,6 +276,206 @@ export function createMockRuntimeService(): RuntimeService {
         ],
       };
       return structuredClone(snapshot);
+    },
+
+    async listPhpCatalog() {
+      return structuredClone(catalog.map((artifact) => ({
+        ...artifact,
+        installed: artifact.installed || snapshot.runtimes.some((runtime) => (
+          runtime.family === artifact.family
+          && runtime.version === artifact.version
+          && runtime.architecture === artifact.architecture
+        )),
+      })));
+    },
+
+    async planPhpInstall(artifactId): Promise<RuntimeInstallPlan> {
+      const artifact = catalog.find((candidate) => candidate.artifactId === artifactId);
+      if (!artifact) throw new Error('CATALOG_ARTIFACT_NOT_FOUND');
+      if (!artifact.available || artifact.lifecycle === 'revoked') throw new Error('CATALOG_ARTIFACT_UNAVAILABLE');
+      const planId = `install-plan-${crypto.randomUUID()}`;
+      installPlans.set(planId, artifact);
+      return { planId, artifact: structuredClone(artifact) };
+    },
+
+    async listPhpInstallPlans(): Promise<RuntimeInstallPlan[]> {
+      return Array.from(installPlans, ([planId, artifact]) => ({ planId, artifact: structuredClone(artifact) }));
+    },
+
+    async cancelPhpInstall(planId) {
+      if (cancelledInstallPlans.has(planId)) return;
+      if (completedInstallPlans.has(planId)) throw new Error('OPERATION_NOT_CANCELLABLE');
+      if (!installPlans.has(planId)) throw new Error('PLAN_REQUIRED');
+      installPlans.delete(planId);
+      cancelledInstallPlans.add(planId);
+    },
+
+    async applyPhpInstall(planId) {
+      if (cancelledInstallPlans.has(planId)) throw new Error('PLAN_CANCELLED');
+      const artifact = installPlans.get(planId);
+      if (!artifact) throw new Error('PLAN_REQUIRED');
+      installPlans.delete(planId);
+      const runtimeId = `${artifact.family}-${artifact.version}-x64-nts`;
+      if (!snapshot.runtimes.some((runtime) => runtime.id === runtimeId)) {
+        snapshot = {
+          ...snapshot,
+          runtimes: [
+            ...snapshot.runtimes,
+            {
+              id: runtimeId,
+              family: 'php',
+              name: 'PHP',
+              version: artifact.version,
+              availability: 'managed',
+              activation: 'disabled',
+              health: 'healthy',
+              operation: 'idle',
+              architecture: 'x64',
+              path: `%LOCALAPPDATA%\\cxszn-menv\\versions\\php\\${artifact.version}\\x64\\php.exe`,
+              source: 'managed',
+              lastCheckedAt: '刚刚',
+              detail: `${artifact.threadSafety.toUpperCase()} · 已完成 SHA-256 校验`,
+              ...(artifact.threadSafety === 'ts' || artifact.threadSafety === 'nts' ? { ts: artifact.threadSafety } : {}),
+              eol: artifact.legacy,
+            },
+          ],
+          activities: [
+            {
+              id: `activity-${Date.now()}`,
+              occurredAt: '刚刚',
+              title: `PHP ${artifact.version} 已下载`,
+              detail: '已校验并登记为受管版本 · 默认未启用',
+              tone: 'success',
+            },
+            ...snapshot.activities,
+          ],
+        };
+      }
+      catalog = catalog.map((candidate) => candidate.artifactId === artifact.artifactId
+        ? { ...candidate, installed: true }
+        : candidate);
+      completedInstallPlans.add(planId);
+      return structuredClone(snapshot);
+    },
+
+    async planPhpRegister(path): Promise<RuntimeRegistrationPlan> {
+      if (!path.trim()) throw new Error('INVALID_RUNTIME_PATH');
+      const planId = `register-plan-${Date.now()}`;
+      const runtime: RuntimeRecord = {
+        id: `php-manual-${Date.now()}`,
+        family: 'php',
+        name: 'PHP',
+        version: 'unknown',
+        availability: 'manual',
+        activation: 'disabled',
+        health: 'warning',
+        operation: 'idle',
+        architecture: 'unknown',
+        path,
+        source: 'manual',
+        lastCheckedAt: '刚刚',
+        detail: '手动路径 · 等待确认登记',
+      };
+      registerPlans.set(planId, runtime);
+      return { planId, runtime: structuredClone(runtime) };
+    },
+
+    async applyPhpRegister(planId) {
+      const runtime = registerPlans.get(planId);
+      if (!runtime) throw new Error('PLAN_REQUIRED');
+      registerPlans.delete(planId);
+      if (!snapshot.runtimes.some((candidate) => candidate.path?.toLowerCase() === runtime.path?.toLowerCase())) {
+        snapshot = {
+          ...snapshot,
+          runtimes: [...snapshot.runtimes, runtime],
+          activities: [
+            {
+              id: `activity-${Date.now()}`,
+              occurredAt: '刚刚',
+              title: 'PHP 手动路径已登记',
+              detail: '外部文件未复制、未覆盖、未启用',
+              tone: 'success',
+            },
+            ...snapshot.activities,
+          ],
+        };
+      }
+      return structuredClone(snapshot);
+    },
+
+    async planPhpIniBackup(runtimeId) {
+      const runtime = snapshot.runtimes.find((candidate) => candidate.id === runtimeId);
+      if (!runtime) throw new Error('RUNTIME_NOT_FOUND');
+      const ini = await this.readPhpIni(runtimeId);
+      if (!ini.path || ini.content === null) throw new Error('PHP_INI_NOT_FOUND');
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ini.content));
+      const sourceSha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+      const planId = `ini-backup-plan-${Date.now()}`;
+      iniBackupPlans.set(planId, runtimeId);
+      return { planId, runtime: structuredClone(runtime), sourcePath: ini.path, sourceSha256 };
+    },
+
+    async applyPhpIniBackup(planId) {
+      const runtimeId = iniBackupPlans.get(planId);
+      if (!runtimeId) throw new Error('PLAN_REQUIRED');
+      iniBackupPlans.delete(planId);
+      const runtime = snapshot.runtimes.find((candidate) => candidate.id === runtimeId);
+      if (!runtime) throw new Error('RUNTIME_NOT_FOUND');
+      return {
+        runtimeId,
+        sourcePath: runtime.path ?? '',
+        backupPath: `%LOCALAPPDATA%\\cxszn-menv\\backups\\php-ini\\${planId}.php.ini.bak`,
+      };
+    },
+
+    async startTerminal(cwd) {
+      return { sessionId: `mock-terminal-${Date.now()}`, cwd: cwd ?? 'C:\\Projects\\demo' };
+    },
+
+    async sendTerminalInput() {
+      // The mock terminal is intentionally display-only; the native service
+      // owns process creation and input delivery.
+    },
+
+    async pollTerminal() {
+      return [];
+    },
+
+    async closeTerminal() {
+      // No process exists in the mock service.
+    },
+
+    async readPhpIni(runtimeId) {
+      const runtime = snapshot.runtimes.find((candidate) => candidate.id === runtimeId);
+      if (!runtime) throw new Error('RUNTIME_NOT_FOUND');
+      return {
+        runtimeId,
+        path: null,
+        content: null,
+        truncated: false,
+      };
+    },
+
+    async startPhpServer(input) {
+      return {
+        serverId: `mock-php-server-${Date.now()}`,
+        runtimeId: input.runtimeId,
+        docroot: input.docroot,
+        endpoint: `${input.host}:${input.port}`,
+        logPath: '%LOCALAPPDATA%\\cxszn-menv\\logs\\php-server\\mock.log',
+      };
+    },
+
+    async stopPhpServer() {
+      // No process exists in the mock service.
+    },
+
+    async diagnoseWebServers() {
+      return [
+        { server: 'IIS', detected: false, configPaths: [], phpReferences: [], warnings: [] },
+        { server: 'Apache', detected: false, configPaths: [], phpReferences: [], warnings: [] },
+        { server: 'Nginx', detected: false, configPaths: [], phpReferences: [], warnings: [] },
+      ];
     },
   };
 }

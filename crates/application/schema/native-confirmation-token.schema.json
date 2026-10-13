@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cxszn-menv.local/schema/native-confirmation-token-v1",
+  "title": "MEnv native issued confirmation token v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["value", "planId", "planHash", "actor", "expiresAtEpochSeconds"],
+  "properties": {
+    "value": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Opaque issued nonce; application validation requires a matching stored SHA-256 binding. Treat as a secret." },
+    "planId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+    "planHash": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" },
+    "actor": { "type": "string", "minLength": 1 },
+    "expiresAtEpochSeconds": { "type": "integer", "minimum": 0 }
+  }
+}

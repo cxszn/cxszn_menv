@@ -1,0 +1,22 @@
+{
+  "note": "Public test data only. Shape-valid fixtures are never issued approvals and must fail application authorization.",
+  "valid": {
+    "value": "test-only-never-issued",
+    "planId": "72b9d059-77b3-4ecb-9d89-1bda3da5b840",
+    "planHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "actor": "contract-fixture",
+    "expiresAtEpochSeconds": 1791878400
+  },
+  "invalid": [
+    { "name": "missing nonce", "remove": "value" },
+    { "name": "empty nonce", "set": { "value": "" } },
+    { "name": "invalid plan identifier", "set": { "planId": "not-a-uuid" } },
+    { "name": "invalid plan digest", "set": { "planHash": "not-a-sha256" } },
+    { "name": "missing actor", "remove": "actor" },
+    { "name": "empty actor", "set": { "actor": "" } },
+    { "name": "negative expiry", "set": { "expiresAtEpochSeconds": -1 } },
+    { "name": "noninteger expiry", "set": { "expiresAtEpochSeconds": 1.5 } },
+    { "name": "string expiry", "set": { "expiresAtEpochSeconds": "1791878400" } },
+    { "name": "unknown approval flag", "set": { "approved": true } }
+  ]
+}

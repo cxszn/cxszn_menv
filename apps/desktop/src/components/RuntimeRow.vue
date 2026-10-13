@@ -48,16 +48,20 @@ const healthTone = (runtime: RuntimeRecord) => {
     </div>
 
     <div class="runtime-action">
-      <button
-        v-if="runtime.activation !== 'active'"
-        type="button"
-        class="text-button"
-        :disabled="runtime.availability === 'invalid-path' || runtime.availability === 'unsupported'"
-        @click="emit('enable')"
-      >
-        启用
-      </button>
-      <span v-else class="active-caption">当前版本</span>
+      <span v-if="runtime.family !== 'php'" class="active-caption">仅检测</span>
+      <template v-else>
+        <button
+          v-if="runtime.activation !== 'active'"
+          type="button"
+          class="text-button"
+          :disabled="runtime.availability === 'invalid-path' || runtime.availability === 'unsupported' || runtime.activation === 'enabling' || runtime.activation === 'disabling' || runtime.operation === 'running'"
+          :aria-label="`启用 ${runtime.name} ${runtime.version}`"
+          @click="emit('enable')"
+        >
+          {{ runtime.activation === 'enabling' || runtime.operation === 'running' ? '处理中…' : '启用' }}
+        </button>
+        <span v-else class="active-caption">当前版本</span>
+      </template>
     </div>
   </article>
 </template>

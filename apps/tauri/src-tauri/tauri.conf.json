@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "MEnv",
+  "productName": "cxszn_menv",
   "version": "../package.json",
   "identifier": "com.cxszn.menv",
   "build": {
@@ -35,19 +35,23 @@
       "icons/128x128@2x.png"
     ],
     "publisher": "cxszn",
+    "resources": {
+      "../../../THIRD-PARTY-NOTICES.md": "THIRD-PARTY-NOTICES.md",
+      "../../../docs/windows-preview.zh-CN.md": "README.zh-CN.md"
+    },
     "shortDescription": "Windows-first multi-runtime development environment manager",
     "longDescription": "MEnv manages PHP development runtimes and user-scoped environment activation on Windows.",
     "windows": {
       "allowDowngrades": false,
       "bundleVCRuntime": false,
       "webviewInstallMode": {
-        "type": "downloadBootstrapper",
+        "type": "embedBootstrapper",
         "silent": true
       },
       "nsis": {
         "installMode": "currentUser",
         "languages": ["English"],
-        "startMenuFolder": "MEnv",
+        "startMenuFolder": "cxszn_menv",
         "displayLanguageSelector": false
       }
     },

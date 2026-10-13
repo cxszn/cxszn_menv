@@ -44,6 +44,36 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Run Windows Rust tests and lint
+        run: |
+          cargo test --workspace
+          cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Run fixed-source PHP live install and rollback acceptance
+        shell: pwsh
+        env:
+          MENV_RUN_LIVE_WINDOWS_INSTALL: '1'
+        run: |
+          cargo test -p cxszn-menv-platform-windows live_downloads_every_supported_catalog_artifact -- --ignored --nocapture
+          cargo test -p cxszn-menv-platform-windows live_hash_mismatch_cleans_staging_and_records_failed_journal -- --ignored --nocapture
+
+      - name: Run ConPTY GUI-subsystem smoke
+        shell: pwsh
+        run: |
+          $smoke = Join-Path $env:GITHUB_WORKSPACE 'target/debug/examples/conpty_smoke.exe'
+          if (-not (Test-Path -LiteralPath $smoke -PathType Leaf)) {
+            throw "ConPTY smoke executable was not built: $smoke"
+          }
+          $smokeScript = Join-Path $env:GITHUB_WORKSPACE 'scripts/windows/Test-ConptyGuiSmoke.ps1'
+          & $smokeScript -ExecutablePath $smoke
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run desktop and contract checks
+        run: |
+          pnpm test
+          pnpm typecheck
+          pnpm --dir apps/desktop build
+
       - name: Build the unsigned NSIS installer
         run: pnpm --dir apps/tauri exec tauri build --target x86_64-pc-windows-msvc --bundles nsis
 
@@ -68,7 +98,11 @@ jobs:
 
           $artifactDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts/menv-windows-x64-nsis-unsigned'
           New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
-          Copy-Item -LiteralPath $installers[0].FullName -Destination $artifactDir
+          $artifactInstaller = Join-Path $artifactDir $installers[0].Name
+          Copy-Item -LiteralPath $installers[0].FullName -Destination $artifactInstaller
+          $artifactFile = Get-Item -LiteralPath $artifactInstaller
+          $artifactHash = (Get-FileHash -LiteralPath $artifactInstaller -Algorithm SHA256).Hash
+          $authenticode = (Get-AuthenticodeSignature -LiteralPath $artifactInstaller).Status.ToString()
 
           $manifest = [ordered]@{
             product = 'MEnv'
@@ -80,6 +114,9 @@ jobs:
             signing = 'disabled-by-policy'
             source = $installers[0].FullName.Replace($env:GITHUB_WORKSPACE, '').TrimStart('\', '/')
             commit = $env:GITHUB_SHA
+            size_bytes = $artifactFile.Length
+            sha256 = $artifactHash
+            authenticode = $authenticode
           }
           $manifest | ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $artifactDir 'bundle-manifest.json')
           @'
@@ -89,6 +126,16 @@ jobs:
           trusted production Windows release. A signed release requires a
           separately reviewed certificate workflow and release approval gate.
           '@ | Set-Content -Encoding utf8 (Join-Path $artifactDir 'UNSIGNED.txt')
+
+      - name: Run installer install/launch/uninstall smoke
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'artifacts/menv-windows-x64-nsis-unsigned') -Filter '*-setup.exe' -File |
+            Select-Object -First 1
+          if ($null -eq $installer) { throw 'Unsigned NSIS installer was not collected.' }
+          $smokeScript = Join-Path $env:GITHUB_WORKSPACE 'scripts/windows/Test-InstallerSmoke.ps1'
+          & $smokeScript -InstallerPath $installer.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload unsigned installer artifact
         uses: actions/upload-artifact@v4

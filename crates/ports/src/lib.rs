@@ -38,6 +38,27 @@ pub enum PortError {
     ProbeTimeout,
     #[error("platform operation failed: {0}")]
     Platform(String),
+    #[error("backup was not completed; a file was retained for recovery at {backup_path}")]
+    BackupRecoveryRequired { backup_path: String },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IniBackupArtifact {
+    pub path: PathBuf,
+    pub sha256: String,
+}
+
+/// An app-owned, create-new backup store. Creation must flush and read back
+/// the artifact; errors after creation retain it rather than deleting by name.
+/// Source files and pre-existing backup files must never be overwritten.
+pub trait PhpIniBackupStore: Send + Sync {
+    fn read_source(&self, path: &Path) -> Result<Vec<u8>, PortError>;
+    fn create_backup(
+        &self,
+        backup_id: &str,
+        contents: &[u8],
+    ) -> Result<IniBackupArtifact, PortError>;
+    fn get_backup(&self, backup_id: &str) -> Result<IniBackupArtifact, PortError>;
 }
 
 /// Discovers runtimes without mutating PATH or taking ownership of them.
@@ -55,6 +76,22 @@ pub trait EnvironmentStore: Send + Sync {
     fn load(&self) -> Result<EnvironmentSnapshot, PortError>;
 
     fn save(&self, snapshot: &EnvironmentSnapshot) -> Result<(), PortError>;
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConfirmationRecord {
+    pub token_hash: String,
+    pub plan_id: String,
+    pub plan_hash: String,
+    pub actor: String,
+    pub expires_at_epoch_seconds: u64,
+}
+
+/// Records only token digests issued by the trusted host confirmation surface.
+/// Inserts are atomic/create-new; lookup never creates an approval record.
+pub trait ConfirmationStore: Send + Sync {
+    fn insert(&self, record: &ConfirmationRecord) -> Result<(), PortError>;
+    fn find(&self, token_hash: &str) -> Result<Option<ConfirmationRecord>, PortError>;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

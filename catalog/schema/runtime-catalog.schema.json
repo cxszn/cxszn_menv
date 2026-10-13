@@ -114,7 +114,7 @@
       "required": ["algorithm", "key_id", "value"],
       "properties": {
         "algorithm": {
-          "enum": ["ed25519", "ecdsa-p256-sha256"]
+          "const": "ed25519"
         },
         "key_id": {
           "type": "string",

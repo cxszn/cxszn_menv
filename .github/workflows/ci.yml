@@ -39,9 +39,16 @@ jobs:
       - name: Run type checks and builds
         run: pnpm typecheck && pnpm build
 
+      - name: Verify signed runtime catalog
+        run: pnpm catalog:verify
+
       - name: Validate catalog and Skill contracts
         shell: pwsh
         run: ./.agents/skills/cxszn-menv-operator/scripts/validate-contract.ps1 -RepoRoot .
 
       - name: Validate MCP schemas
         run: pnpm --filter @cxszn-menv/mcp validate-contracts
+
+      - name: Validate native confirmation schema fixtures
+        shell: pwsh
+        run: ./scripts/validate-native-contracts.ps1 -RepoRoot .

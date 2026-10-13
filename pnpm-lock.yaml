@@ -23,6 +23,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@tauri-apps/api':
+        specifier: ^2.0.0
+        version: 2.12.2
       vue:
         specifier: ^3.5.22
         version: 3.5.43(typescript@5.8.3)

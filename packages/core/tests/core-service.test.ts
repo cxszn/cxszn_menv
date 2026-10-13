@@ -5,7 +5,10 @@ import {
   InMemoryPlanStore,
   InMemoryPathLeaseStore,
   InMemoryStateStore,
+  createPathLeaseState,
   type FileSystemProbe,
+  type PathLeaseState,
+  type PathLeaseStore,
   type ProcessProbe,
 } from '../src/index.js';
 
@@ -24,6 +27,43 @@ function processProbe(): ProcessProbe {
   return {
     run: async () => ({ exitCode: 0, stdout: 'PHP 8.3.12 (cli) (NTS Visual C++ 2022 x64)\n', stderr: '' }),
   };
+}
+
+class BlockingPathLeaseStore implements PathLeaseStore {
+  private state: PathLeaseState = createPathLeaseState(null, [], false, null, null);
+  private entered: Promise<void>;
+  private released: Promise<void>;
+  private resolveEntered!: () => void;
+  private resolveReleased!: () => void;
+  private blockNextWrite = true;
+
+  public constructor() {
+    this.entered = new Promise<void>((resolve) => { this.resolveEntered = resolve; });
+    this.released = new Promise<void>((resolve) => { this.resolveReleased = resolve; });
+  }
+
+  public async read(): Promise<PathLeaseState> {
+    return structuredClone(this.state);
+  }
+
+  public async write(next: PathLeaseState, expectedHash: string): Promise<PathLeaseState> {
+    if (this.state.hash !== expectedHash) throw new CoreError('PATH_CONFLICT', 'path changed');
+    if (this.blockNextWrite) {
+      this.blockNextWrite = false;
+      this.resolveEntered();
+      await this.released;
+    }
+    this.state = structuredClone(next);
+    return structuredClone(this.state);
+  }
+
+  public waitUntilWriteStarts(): Promise<void> {
+    return this.entered;
+  }
+
+  public release(): void {
+    this.resolveReleased();
+  }
 }
 
 function service() {
@@ -175,5 +215,36 @@ describe('CoreService runtime lifecycle', () => {
     const operation = await second.applyEnvironmentChange({ planId: plan.planId, confirmationToken: token, idempotencyKey: 'cross-process-1' });
 
     expect(operation.status).toBe('succeeded');
+  });
+
+  it('persists running state and rolls PATH back when a concurrent operation is cancelled', async () => {
+    const pathLeaseStore = new BlockingPathLeaseStore();
+    const core = new CoreService({
+      stateStore: new InMemoryStateStore(),
+      pathLeaseStore,
+      fileSystem: fsProbe(),
+      processProbe: processProbe(),
+      scannerPaths: [executablePath],
+      appBinPath: 'C:\\Users\\demo\\AppData\\Local\\cxszn-menv\\bin',
+    });
+    const runtime = (await core.scanInstalledRuntimes()).runtimes[0];
+    if (!runtime) throw new Error('expected runtime');
+    const plan = await core.planEnvironmentChange({ action: 'enable', runtimeId: runtime.id, scope: 'user' });
+    const token = await core.confirmPlan(plan.planId, 'test-user');
+
+    const applying = core.applyEnvironmentChange({
+      planId: plan.planId,
+      confirmationToken: token,
+      idempotencyKey: 'cancel-running-1',
+    });
+    await pathLeaseStore.waitUntilWriteStarts();
+    const running = (await core.getEnvironmentState()).operations[0];
+    if (!running) throw new Error('expected running operation');
+    expect(running.status).toBe('running');
+    await expect(core.cancelOperation(running.operationId)).resolves.toMatchObject({ status: 'cancelled' });
+    pathLeaseStore.release();
+    await expect(applying).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' });
+    expect((await core.getEnvironmentState()).operations[0]?.status).toBe('cancelled');
+    expect((await core.getEnvironmentState()).pathLease.enabled).toBe(false);
   });
 });

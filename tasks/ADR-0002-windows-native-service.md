@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted for implementation; not yet validated on a Windows 11 clean machine.
+Accepted for implementation; native source and static contracts are validated,
+but clean-machine Windows 11 acceptance is still pending.
 
 ## Context
 
@@ -27,6 +28,11 @@ rollback, and audit behavior diverge.
    must finish before an immutable version directory is registered.
 6. Enable Tauri current-user NSIS only after Windows CI can build the native host;
    unsigned artifacts remain explicitly unsigned.
+7. Use `reqwest` with HTTPS-only/no-redirect policy (Windows Schannel via
+   `native-tls`) and `zip` for the Windows installer adapter. These dependencies
+   are scoped to fixed-source artifact installation because the standard library
+   has no HTTP or ZIP reader; the adapter still enforces catalog-provided
+   size/SHA, path, reparse, and atomic publish checks before accepting a version.
 
 ## Consequences
 
@@ -35,6 +41,10 @@ rollback, and audit behavior diverge.
   are separate hosts; write actions must not be exposed by one host only.
 - Windows-specific tests require a Windows runner; Linux CI remains useful for
   schema and pure logic tests but cannot prove registry, ConPTY, or installer work.
+- The installer adapter is not a public URL downloader: its source validator
+  accepts only `https://downloads.php.net/~windows/releases/`, and its staging
+  function is not wired to a GUI write command until plan/confirm/apply and
+  journal recovery evidence are complete.
 
 ## Evidence required before v0.0.2
 

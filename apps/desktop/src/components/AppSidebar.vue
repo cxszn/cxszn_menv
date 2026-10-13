@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { version as appVersion } from '../../package.json';
+
 defineProps<{ activeView: string }>();
 const emit = defineEmits<{ select: [view: string] }>();
 
@@ -41,7 +43,7 @@ const navItems = [
       <span class="status-dot" aria-hidden="true" />
       <div>
         <span class="footnote-label">本地服务</span>
-        <span class="footnote-meta">已连接 · v0.1 preview</span>
+        <span class="footnote-meta">已连接 · v{{ appVersion }} preview</span>
       </div>
     </div>
   </aside>

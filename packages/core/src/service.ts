@@ -415,6 +415,9 @@ export class CoreService {
       updatedAt: startedAt,
     };
 
+    state.operations = [...state.operations, operation];
+    await this.saveState(state);
+
     try {
       if (plan.action === 'runtime.add') {
         if (!plan.runtimePath) throw new CoreError('INVALID_INPUT', 'The runtime.add plan has no executable path.');
@@ -428,9 +431,18 @@ export class CoreService {
         state.runtimes = updateRuntimeActivation(state.runtimes, plan.action, plan.runtimeId, plan.targetRuntimeId);
       }
       state.pathLease = await this.readPathLease();
+      const latestState = await this.loadState();
+      const persistedOperation = latestState.operations.find((candidate) => candidate.operationId === operationId);
+      if (persistedOperation?.status === 'cancelled') {
+        if (plan.scope === 'user' && plan.action !== 'runtime.add') {
+          const current = await this.pathLeaseStore.read();
+          if (current.hash !== plan.pathBefore.hash) await this.pathLeaseStore.write(plan.pathBefore, current.hash);
+        }
+        throw new CoreError('OPERATION_CANCELLED', 'The operation was cancelled before completion.');
+      }
       operation.status = 'succeeded';
       operation.updatedAt = nowIso(this.now);
-      state.operations = [...state.operations, operation];
+      state.operations = state.operations.map((candidate) => candidate.operationId === operationId ? operation : candidate);
       await this.saveState(state);
       this.idempotency.set(input.idempotencyKey, clone(operation));
       plan.appliedOperationId = operationId;
@@ -446,10 +458,17 @@ export class CoreService {
         }
       }
       const coreError = asCoreError(error);
+      const latestState = await this.loadState();
+      const persistedOperation = latestState.operations.find((candidate) => candidate.operationId === operationId);
+      if (persistedOperation?.status === 'cancelled') {
+        throw coreError.code === 'OPERATION_CANCELLED'
+          ? coreError
+          : new CoreError('OPERATION_CANCELLED', 'The operation was cancelled before completion.');
+      }
       operation.status = 'failed';
       operation.updatedAt = nowIso(this.now);
       operation.error = coreError.toJSON();
-      state.operations = [...state.operations, operation];
+      state.operations = state.operations.map((candidate) => candidate.operationId === operationId ? operation : candidate);
       await this.saveState(state);
       throw coreError;
     }

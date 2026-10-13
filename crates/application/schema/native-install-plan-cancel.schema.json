@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cxszn-menv.local/schema/native-install-plan-cancel-v1",
+  "title": "MEnv Tauri pending PHP install plan cancellation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["planId"],
+  "properties": { "planId": { "type": "string", "minLength": 1 } }
+}

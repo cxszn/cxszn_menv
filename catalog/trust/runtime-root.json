@@ -1,0 +1,13 @@
+{
+  "schema_version": "1",
+  "purpose": "runtime-catalog",
+  "keys": [
+    {
+      "key_id": "cxszn-menv-runtime-dev-2026",
+      "algorithm": "ed25519",
+      "public_key": "tp7NKICBZft4nacu1FCLSA-xZpjgESsbuGLPWoJ20eE",
+      "not_before": "2026-10-12T00:00:00.000Z",
+      "not_after": "2027-10-12T00:00:00.000Z"
+    }
+  ]
+}

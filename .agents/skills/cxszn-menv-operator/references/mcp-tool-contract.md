@@ -66,8 +66,9 @@ Perform a read-only scan of PATH and approved discovery locations. Input:
 ### `menv_list_runtime_catalog`
 
 List catalog metadata loaded by the core. Production signed-catalog
-verification is a later installer phase; the current fixture entries are
-visible for tests only and are not downloadable. Input may contain
+verification and the PHP installer are implemented by the Windows desktop host;
+MCP remains metadata-only and does not expose arbitrary download/install tools.
+Fixture entries are visible for tests only and are not downloadable. Input may contain
 `runtime_family` and `include_archival` (boolean). The result explicitly marks
 legacy/EOL/archival entries and never returns a download URL.
 
@@ -104,7 +105,9 @@ only the requested action:
 `runtime.add`), `enable`, `disable`, or `switch`. `path` is required for
 `runtime.add`/`register_path`; `runtime_id` is required for enable/disable and
 the current target is required for switch. `install` and `artifact_id` are not
-accepted by the current adapter. `scope` is currently `user` for PATH changes.
+accepted by the MCP adapter; catalog installation remains a Tauri desktop host
+operation with a signed plan and confirmation dialog. `scope` is currently
+`user` for PATH changes.
 The result includes `plan_id`, `plan_hash`, `expires_at`, `path_before`,
 `path_after`, and `requires_confirmation: true`.
 
@@ -148,7 +151,8 @@ the journal restored the last-known-good state.
 
 Stable codes include `INVALID_PARAMS`, `UNKNOWN_TOOL`,
 `CONFIRMATION_REQUIRED`, `PLAN_STALE`, `IDEMPOTENCY_CONFLICT`, `RESOURCE_BUSY`,
-`CATALOG_REJECTED`, `HASH_MISMATCH`, `PATH_CONFLICT`, `PATH_NOT_FOUND`,
+`OPERATION_BUSY`, `CATALOG_REJECTED`, `HASH_MISMATCH`, `SIZE_MISMATCH`,
+`ARCHIVE_REJECTED`, `DOWNLOAD_FAILED`, `PATH_CONFLICT`, `PATH_NOT_FOUND`,
 `UNSUPPORTED_RUNTIME`, `UNAVAILABLE`, `OPERATION_NOT_FOUND`, `OPERATION_NOT_CANCELLABLE`,
 `TIMEOUT`, and `INTERNAL_ERROR`. Clients must use `retryable` and
 `next_actions`; they must not broaden privileges or bypass verification after

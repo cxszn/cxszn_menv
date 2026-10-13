@@ -18,12 +18,11 @@ protocol and state model twice would create a security and compatibility risk.
 2. `domain` concepts are represented as JSON-shaped TypeScript contracts and
    mirrored in the platform-neutral Rust crates. The Rust/Tauri host remains a
    migration skeleton until it can compile on Windows with the MSVC toolchain.
-3. The current default persistence adapters are JSON files under
-   `%LOCALAPPDATA%\\cxszn-menv`; this is an explicit temporary adapter. An
-   opt-in `NodeSqliteJsonTextStore` provides WAL/full-synchronous storage and a
-   migration/meta table on Node 22.5+/24, while the adapter boundary remains
-   behind `StateStore`, `PlanStore`, and `PathLeaseStore`. It is not yet the
-   final typed, cross-table journal/lock implementation.
+3. The Rust/Tauri Windows composition root now uses a bundled SQLite/WAL state
+   adapter under `%LOCALAPPDATA%\\cxszn-menv`; it migrates the legacy JSON state
+   without deleting it. The TypeScript core keeps its JSON adapter and opt-in
+   Node SQLite text store for protocol compatibility, while plans and install
+   journals remain separate until the unified transaction model is complete.
 4. MCP exposes only local stdio and the eight read/plan/apply/status tools. A
    write requires a plan, a short-lived confirmation token supplied by a
    trusted local confirmation surface, and an idempotency key. No arbitrary
@@ -33,8 +32,9 @@ protocol and state model twice would create a security and compatibility risk.
 
 - Core, CLI, and MCP can be tested deterministically without a Windows registry
   or a running desktop process.
-- JSON persistence is useful for the initial contract slice but does not yet
-  provide SQLite WAL, transactional journal recovery, or cross-process locks.
+- The Rust/Tauri SQLite store now provides WAL/full-synchronous snapshot and
+  operation-journal transactions; the remaining JSON plan/journal files still
+  do not form one cross-file transaction.
 - The desktop UI is currently a mock-backed prototype; connecting it to Tauri
   must preserve the same service boundary and add Windows user-visible tests.
 - Adding a new runtime family or download/install action requires updates to
@@ -42,7 +42,6 @@ protocol and state model twice would create a security and compatibility risk.
 
 ## Revisit when
 
-Install the Rust/MSVC toolchain and implement the Windows adapters, or before
-shipping a production installer. At that point replace the JSON defaults with
-SQLite migrations/WAL and add crash-recovery, PATH conflict, signed catalog,
-archive safety, ConPTY, and Windows 11 acceptance evidence.
+Before shipping a production installer, complete the plan/journal migration to
+the same SQLite transaction boundary and add crash-recovery, PATH conflict,
+signed catalog, archive safety, ConPTY, and Windows 11 acceptance evidence.

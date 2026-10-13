@@ -296,70 +296,48 @@ fn validate_absolute_directory(path: &Path) -> Result<(), ConptyError> {
 mod windows_impl {
     use super::*;
     use std::ffi::c_void;
-    use std::mem::{size_of, zeroed};
-    use std::ptr::{null, null_mut};
+    use std::mem::size_of;
+    use std::ptr::null_mut;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::thread::{self, JoinHandle};
+    use windows::core::{PCWSTR, PWSTR};
+    use windows::Win32::Foundation::HANDLE;
+    use windows::Win32::System::Console::{
+        CreatePseudoConsole as WinCreatePseudoConsole, COORD as WinCoord,
+    };
+    use windows::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+        SetInformationJobObject, TerminateJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
+    use windows::Win32::System::Memory::{GetProcessHeap, HeapAlloc, HeapFree, HEAP_FLAGS};
+    use windows::Win32::System::Threading::{
+        CreateProcessW as WinCreateProcessW,
+        DeleteProcThreadAttributeList as WinDeleteProcThreadAttributeList,
+        InitializeProcThreadAttributeList as WinInitializeProcThreadAttributeList,
+        UpdateProcThreadAttribute as WinUpdateProcThreadAttribute,
+        CREATE_UNICODE_ENVIRONMENT as WIN_CREATE_UNICODE_ENVIRONMENT,
+        EXTENDED_STARTUPINFO_PRESENT as WIN_EXTENDED_STARTUPINFO_PRESENT,
+        LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_INFORMATION as WinProcessInformation,
+        PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE as WIN_PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
+        STARTUPINFOEXW,
+    };
 
     type RawHandle = *mut c_void;
-    type RawHpc = *mut c_void;
+    type RawHpc = isize;
     type Bool = i32;
 
     const FALSE: Bool = 0;
     const INVALID_HANDLE_VALUE: RawHandle = -1isize as RawHandle;
-    const EXTENDED_STARTUPINFO_PRESENT: u32 = 0x0008_0000;
-    const CREATE_UNICODE_ENVIRONMENT: u32 = 0x0000_0400;
-    const PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE: usize = 0x0002_0016;
     const WAIT_OBJECT_0: u32 = 0;
     const WAIT_TIMEOUT: u32 = 258;
-
-    #[repr(C)]
-    struct Coord {
-        x: i16,
-        y: i16,
-    }
+    const HANDLE_FLAG_INHERIT: u32 = 0x0000_0001;
 
     #[repr(C)]
     struct SecurityAttributes {
         length: u32,
         descriptor: *mut c_void,
         inherit_handle: Bool,
-    }
-
-    #[repr(C)]
-    struct StartupInfoW {
-        cb: u32,
-        reserved: *mut u16,
-        desktop: *mut u16,
-        title: *mut u16,
-        x: u32,
-        y: u32,
-        x_size: u32,
-        y_size: u32,
-        x_count_chars: u32,
-        y_count_chars: u32,
-        fill_attribute: u32,
-        flags: u32,
-        show_window: u16,
-        cb_reserved_2: u16,
-        reserved_2: *mut u8,
-        std_input: RawHandle,
-        std_output: RawHandle,
-        std_error: RawHandle,
-    }
-
-    #[repr(C)]
-    struct StartupInfoExW {
-        startup_info: StartupInfoW,
-        attribute_list: *mut c_void,
-    }
-
-    #[repr(C)]
-    struct ProcessInformation {
-        process: RawHandle,
-        thread: RawHandle,
-        process_id: u32,
-        thread_id: u32,
     }
 
     #[link(name = "kernel32")]
@@ -384,44 +362,10 @@ mod windows_impl {
             written: *mut u32,
             overlapped: *mut c_void,
         ) -> Bool;
+        fn SetHandleInformation(handle: RawHandle, mask: u32, flags: u32) -> Bool;
         fn CloseHandle(handle: RawHandle) -> Bool;
         fn GetLastError() -> u32;
-        fn CreatePseudoConsole(
-            size: Coord,
-            input: RawHandle,
-            output: RawHandle,
-            flags: u32,
-            pc: *mut RawHpc,
-        ) -> i32;
         fn ClosePseudoConsole(pc: RawHpc);
-        fn InitializeProcThreadAttributeList(
-            list: *mut c_void,
-            count: u32,
-            flags: u32,
-            size: *mut usize,
-        ) -> Bool;
-        fn UpdateProcThreadAttribute(
-            list: *mut c_void,
-            flags: u32,
-            attribute: usize,
-            value: *const c_void,
-            size: usize,
-            previous: *mut c_void,
-            return_size: *const usize,
-        ) -> Bool;
-        fn DeleteProcThreadAttributeList(list: *mut c_void);
-        fn CreateProcessW(
-            application: *const u16,
-            command_line: *mut u16,
-            process_attrs: *const SecurityAttributes,
-            thread_attrs: *const SecurityAttributes,
-            inherit: Bool,
-            flags: u32,
-            environment: *const c_void,
-            cwd: *const u16,
-            startup_info: *const StartupInfoW,
-            process_info: *mut ProcessInformation,
-        ) -> Bool;
         fn WaitForSingleObject(handle: RawHandle, timeout_ms: u32) -> u32;
         fn GetExitCodeProcess(handle: RawHandle, code: *mut u32) -> Bool;
         fn TerminateProcess(handle: RawHandle, code: u32) -> Bool;
@@ -455,6 +399,7 @@ mod windows_impl {
         input: Option<mpsc::Sender<InputMessage>>,
         output: mpsc::Receiver<ConptyEvent>,
         process: Option<Handle>,
+        job: Option<Handle>,
         pc: Option<RawHpc>,
         stop: std::sync::Arc<AtomicBool>,
         writer: Option<JoinHandle<()>>,
@@ -462,6 +407,10 @@ mod windows_impl {
         timeout: Duration,
         closed: bool,
     }
+
+    // The session owns the raw handles and worker threads exclusively; moving
+    // the owner between Tauri command calls does not share a handle concurrently.
+    unsafe impl Send for Session {}
 
     impl Session {
         pub fn start(config: ConptyConfig) -> Result<Self, ConptyError> {
@@ -494,46 +443,90 @@ mod windows_impl {
             let mut input_write = null_mut();
             let mut output_read = null_mut();
             let mut output_write = null_mut();
-            // SAFETY: all output pointers are valid for the duration of the calls.
-            if unsafe { CreatePipe(&mut input_read, &mut input_write, null(), 0) } == FALSE {
+            let security_attributes = SecurityAttributes {
+                length: size_of::<SecurityAttributes>() as u32,
+                descriptor: null_mut(),
+                // ConPTY-facing ends must be inheritable; parent-owned ends
+                // are marked non-inheritable immediately after creation.
+                inherit_handle: 1,
+            };
+            // SAFETY: output pointers and security attributes remain valid for
+            // the duration of both CreatePipe calls.
+            if unsafe { CreatePipe(&mut input_read, &mut input_write, &security_attributes, 0) }
+                == FALSE
+            {
                 return Err(api_error("CreatePipe", unsafe { GetLastError() }));
             }
-            if unsafe { CreatePipe(&mut output_read, &mut output_write, null(), 0) } == FALSE {
+            if unsafe { CreatePipe(&mut output_read, &mut output_write, &security_attributes, 0) }
+                == FALSE
+            {
                 unsafe { CloseHandle(input_read) };
                 unsafe { CloseHandle(input_write) };
                 return Err(api_error("CreatePipe", unsafe { GetLastError() }));
             }
+            if unsafe { SetHandleInformation(input_write, HANDLE_FLAG_INHERIT, 0) } == FALSE {
+                let code = unsafe { GetLastError() };
+                unsafe {
+                    CloseHandle(input_read);
+                    CloseHandle(input_write);
+                    CloseHandle(output_read);
+                    CloseHandle(output_write);
+                }
+                return Err(api_error("SetHandleInformation", code));
+            }
+            if unsafe { SetHandleInformation(output_read, HANDLE_FLAG_INHERIT, 0) } == FALSE {
+                let code = unsafe { GetLastError() };
+                unsafe {
+                    CloseHandle(input_read);
+                    CloseHandle(input_write);
+                    CloseHandle(output_read);
+                    CloseHandle(output_write);
+                }
+                return Err(api_error("SetHandleInformation", code));
+            }
 
-            let mut pc = null_mut();
-            let result = unsafe {
-                CreatePseudoConsole(
-                    Coord {
-                        x: config.columns as i16,
-                        y: config.rows as i16,
+            let pc = match unsafe {
+                WinCreatePseudoConsole(
+                    WinCoord {
+                        X: config.columns as i16,
+                        Y: config.rows as i16,
                     },
-                    input_read,
-                    output_write,
+                    HANDLE(input_read),
+                    HANDLE(output_write),
                     0,
-                    &mut pc,
                 )
+            } {
+                Ok(handle) => handle.0,
+                Err(error) => {
+                    unsafe { CloseHandle(input_read) };
+                    unsafe { CloseHandle(output_write) };
+                    unsafe { CloseHandle(input_write) };
+                    unsafe { CloseHandle(output_read) };
+                    return Err(ConptyError::ApiFailure {
+                        operation: "CreatePseudoConsole",
+                        code: error.code().0 as u32,
+                    });
+                }
             };
-            unsafe { CloseHandle(input_read) };
-            unsafe { CloseHandle(output_write) };
-            if result < 0 || pc.is_null() {
+            if pc == 0 {
+                unsafe { CloseHandle(input_read) };
+                unsafe { CloseHandle(output_write) };
                 unsafe { CloseHandle(input_write) };
                 unsafe { CloseHandle(output_read) };
                 return Err(ConptyError::ApiFailure {
                     operation: "CreatePseudoConsole",
-                    code: result as u32,
+                    code: 0,
                 });
             }
 
             let mut attribute_bytes = 0usize;
             // SAFETY: first call intentionally asks Windows for the required size.
-            let first = unsafe {
-                InitializeProcThreadAttributeList(null_mut(), 1, 0, &mut attribute_bytes)
+            let _ = unsafe {
+                WinInitializeProcThreadAttributeList(None, 1, None, &mut attribute_bytes)
             };
-            if first != FALSE || attribute_bytes == 0 {
+            if attribute_bytes == 0 {
+                unsafe { CloseHandle(input_read) };
+                unsafe { CloseHandle(output_write) };
                 unsafe { ClosePseudoConsole(pc) };
                 unsafe { CloseHandle(input_write) };
                 unsafe { CloseHandle(output_read) };
@@ -541,39 +534,78 @@ mod windows_impl {
                     GetLastError()
                 }));
             }
-            let words = (attribute_bytes + size_of::<usize>() - 1) / size_of::<usize>();
-            let mut attribute_storage = vec![0usize; words];
-            let attribute_list = attribute_storage.as_mut_ptr() as *mut c_void;
-            if unsafe {
-                InitializeProcThreadAttributeList(attribute_list, 1, 0, &mut attribute_bytes)
-            } == FALSE
-            {
+            let heap = match unsafe { GetProcessHeap() } {
+                Ok(heap) => heap,
+                Err(error) => {
+                    unsafe { CloseHandle(input_read) };
+                    unsafe { CloseHandle(output_write) };
+                    unsafe { ClosePseudoConsole(pc) };
+                    unsafe { CloseHandle(input_write) };
+                    unsafe { CloseHandle(output_read) };
+                    return Err(ConptyError::ApiFailure {
+                        operation: "GetProcessHeap",
+                        code: error.code().0 as u32,
+                    });
+                }
+            };
+            let attribute_storage = unsafe { HeapAlloc(heap, HEAP_FLAGS(0), attribute_bytes) };
+            if attribute_storage.is_null() {
+                unsafe { CloseHandle(input_read) };
+                unsafe { CloseHandle(output_write) };
                 unsafe { ClosePseudoConsole(pc) };
                 unsafe { CloseHandle(input_write) };
                 unsafe { CloseHandle(output_read) };
-                return Err(api_error("InitializeProcThreadAttributeList", unsafe {
-                    GetLastError()
-                }));
+                return Err(ConptyError::ApiFailure {
+                    operation: "HeapAlloc",
+                    code: unsafe { GetLastError() },
+                });
             }
-            let updated = unsafe {
-                UpdateProcThreadAttribute(
+            let attribute_list = LPPROC_THREAD_ATTRIBUTE_LIST(attribute_storage);
+            if let Err(error) = unsafe {
+                WinInitializeProcThreadAttributeList(
+                    Some(attribute_list),
+                    1,
+                    None,
+                    &mut attribute_bytes,
+                )
+            } {
+                unsafe { CloseHandle(input_read) };
+                unsafe { CloseHandle(output_write) };
+                unsafe { ClosePseudoConsole(pc) };
+                unsafe { CloseHandle(input_write) };
+                unsafe { CloseHandle(output_read) };
+                unsafe {
+                    let _ = HeapFree(heap, HEAP_FLAGS(0), Some(attribute_storage));
+                };
+                return Err(ConptyError::ApiFailure {
+                    operation: "InitializeProcThreadAttributeList",
+                    code: error.code().0 as u32,
+                });
+            }
+            if let Err(error) = unsafe {
+                WinUpdateProcThreadAttribute(
                     attribute_list,
                     0,
-                    PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
-                    &pc as *const RawHpc as *const c_void,
+                    WIN_PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE as usize,
+                    Some(pc as *const c_void),
                     size_of::<RawHpc>(),
-                    null_mut(),
-                    null(),
+                    None,
+                    None,
                 )
-            };
-            if updated == FALSE {
-                unsafe { DeleteProcThreadAttributeList(attribute_list) };
+            } {
+                unsafe { CloseHandle(input_read) };
+                unsafe { CloseHandle(output_write) };
+                unsafe { WinDeleteProcThreadAttributeList(attribute_list) };
+                unsafe {
+                    let _ = HeapFree(heap, HEAP_FLAGS(0), Some(attribute_storage));
+                };
                 unsafe { ClosePseudoConsole(pc) };
                 unsafe { CloseHandle(input_write) };
                 unsafe { CloseHandle(output_read) };
-                return Err(api_error("UpdateProcThreadAttribute", unsafe {
-                    GetLastError()
-                }));
+                return Err(ConptyError::ApiFailure {
+                    operation: "UpdateProcThreadAttribute",
+                    code: error.code().0 as u32,
+                });
             }
 
             let mut command_line = quote_windows_arg(&executable);
@@ -583,45 +615,107 @@ mod windows_impl {
             }
             let mut command_line_w = command_line.encode_utf16().collect::<Vec<_>>();
             command_line_w.push(0);
-            let executable_w = executable
-                .to_string_lossy()
-                .encode_utf16()
-                .chain(std::iter::once(0))
-                .collect::<Vec<_>>();
             let cwd_w = cwd
                 .to_string_lossy()
                 .encode_utf16()
                 .chain(std::iter::once(0))
                 .collect::<Vec<_>>();
             let environment_w = environment_block(&config.environment)?;
-            let mut startup = StartupInfoExW {
-                startup_info: unsafe { zeroed() },
-                attribute_list,
-            };
-            startup.startup_info.cb = size_of::<StartupInfoExW>() as u32;
-            let mut process_info: ProcessInformation = unsafe { zeroed() };
+            let mut startup = STARTUPINFOEXW::default();
+            startup.StartupInfo.cb = size_of::<STARTUPINFOEXW>() as u32;
+            startup.lpAttributeList = attribute_list;
+            let mut process_info = WinProcessInformation::default();
             let created = unsafe {
-                CreateProcessW(
-                    executable_w.as_ptr(),
-                    command_line_w.as_mut_ptr(),
-                    null(),
-                    null(),
-                    FALSE,
-                    EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
-                    environment_w.as_ptr() as *const c_void,
-                    cwd_w.as_ptr(),
-                    &startup.startup_info as *const StartupInfoW,
+                WinCreateProcessW(
+                    PCWSTR::null(),
+                    Some(PWSTR(command_line_w.as_mut_ptr())),
+                    None,
+                    None,
+                    false,
+                    WIN_EXTENDED_STARTUPINFO_PRESENT | WIN_CREATE_UNICODE_ENVIRONMENT,
+                    Some(environment_w.as_ptr() as *const c_void),
+                    PCWSTR(cwd_w.as_ptr()),
+                    &startup.StartupInfo,
                     &mut process_info,
                 )
             };
-            unsafe { DeleteProcThreadAttributeList(attribute_list) };
-            if created == FALSE {
+            unsafe { WinDeleteProcThreadAttributeList(attribute_list) };
+            unsafe {
+                let _ = HeapFree(heap, HEAP_FLAGS(0), Some(attribute_storage));
+            };
+            if let Err(error) = created {
+                unsafe { CloseHandle(input_read) };
+                unsafe { CloseHandle(output_write) };
                 unsafe { ClosePseudoConsole(pc) };
                 unsafe { CloseHandle(input_write) };
                 unsafe { CloseHandle(output_read) };
-                return Err(api_error("CreateProcessW", unsafe { GetLastError() }));
+                return Err(ConptyError::ApiFailure {
+                    operation: "CreateProcessW",
+                    code: error.code().0 as u32,
+                });
             }
-            unsafe { CloseHandle(process_info.thread) };
+            // The pseudoconsole has consumed the communication endpoints after
+            // CreateProcessW; release this process's duplicate references now.
+            unsafe { CloseHandle(input_read) };
+            unsafe { CloseHandle(output_write) };
+
+            let job_handle =
+                unsafe { CreateJobObjectW(None, PCWSTR::null()) }.map_err(|error| {
+                    unsafe {
+                        TerminateProcess(process_info.hProcess.0, 1);
+                        CloseHandle(process_info.hThread.0);
+                        CloseHandle(process_info.hProcess.0);
+                        ClosePseudoConsole(pc);
+                        CloseHandle(input_write);
+                        CloseHandle(output_read);
+                    }
+                    ConptyError::ApiFailure {
+                        operation: "CreateJobObjectW",
+                        code: error.code().0 as u32,
+                    }
+                })?;
+            let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+            limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            if let Err(error) = unsafe {
+                SetInformationJobObject(
+                    job_handle,
+                    JobObjectExtendedLimitInformation,
+                    &limits as *const _ as *const c_void,
+                    size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+                )
+            } {
+                unsafe {
+                    CloseHandle(job_handle.0);
+                    TerminateProcess(process_info.hProcess.0, 1);
+                    CloseHandle(process_info.hThread.0);
+                    CloseHandle(process_info.hProcess.0);
+                    ClosePseudoConsole(pc);
+                    CloseHandle(input_write);
+                    CloseHandle(output_read);
+                }
+                return Err(ConptyError::ApiFailure {
+                    operation: "SetInformationJobObject",
+                    code: error.code().0 as u32,
+                });
+            }
+            if let Err(error) =
+                unsafe { AssignProcessToJobObject(job_handle, process_info.hProcess) }
+            {
+                unsafe {
+                    CloseHandle(job_handle.0);
+                    TerminateProcess(process_info.hProcess.0, 1);
+                    CloseHandle(process_info.hThread.0);
+                    CloseHandle(process_info.hProcess.0);
+                    ClosePseudoConsole(pc);
+                    CloseHandle(input_write);
+                    CloseHandle(output_read);
+                }
+                return Err(ConptyError::ApiFailure {
+                    operation: "AssignProcessToJobObject",
+                    code: error.code().0 as u32,
+                });
+            }
+            unsafe { CloseHandle(process_info.hThread.0) };
 
             let stop = std::sync::Arc::new(AtomicBool::new(false));
             let (input_tx, input_rx) = mpsc::channel();
@@ -639,7 +733,8 @@ mod windows_impl {
             Ok(Self {
                 input: Some(input_tx),
                 output: event_rx,
-                process: Some(Handle(process_info.process)),
+                process: Some(Handle(process_info.hProcess.0)),
+                job: Some(Handle(job_handle.0)),
                 pc: Some(pc),
                 stop,
                 writer: Some(writer),
@@ -667,6 +762,11 @@ mod windows_impl {
             match self.output.recv_timeout(timeout) {
                 Ok(event) => {
                     if let ConptyEvent::Error(error) = &event {
+                        // Reader failures (including the output budget) are
+                        // terminal for this session. Stop the child before
+                        // surfacing the error so a caller that only observes
+                        // the failed poll cannot leave a process running.
+                        let _ = self.terminate_child();
                         return Err(error.clone());
                     }
                     Ok(Some(event))
@@ -708,6 +808,11 @@ mod windows_impl {
                 // SAFETY: this is the one owner of the pseudoconsole handle.
                 unsafe { ClosePseudoConsole(pc) };
             }
+            if let Some(job) = self.job.as_ref() {
+                // SAFETY: the job handle is owned by this session and contains
+                // the child process tree created for this ConPTY session.
+                let _ = unsafe { TerminateJobObject(HANDLE(job.0), 1) };
+            }
             let _ = self.terminate_child();
             if let Some(writer) = self.writer.take() {
                 let _ = writer.join();
@@ -716,6 +821,7 @@ mod windows_impl {
                 let _ = reader.join();
             }
             self.process.take();
+            self.job.take();
             Ok(())
         }
 
@@ -795,7 +901,19 @@ mod windows_impl {
                     null_mut(),
                 )
             };
-            if ok == FALSE || read == 0 {
+            if ok == FALSE {
+                let code = unsafe { GetLastError() };
+                // ERROR_BROKEN_PIPE and ERROR_INVALID_HANDLE are expected
+                // while shutdown closes the pseudoconsole endpoints.
+                if code != 109 && code != 6 {
+                    let _ = sender.send(ConptyEvent::Error(ConptyError::ApiFailure {
+                        operation: "ReadFile",
+                        code,
+                    }));
+                }
+                break;
+            }
+            if read == 0 {
                 break;
             }
             total = total.saturating_add(read as usize);
@@ -940,5 +1058,187 @@ mod tests {
             windows_impl::quote_windows_text(r"C:\Program Files\"),
             r#""C:\Program Files\\""#
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "console-host ConPTY output is covered by the GUI-subsystem smoke; run explicitly when diagnosing the host"]
+    fn live_conpty_child_io_and_job_cleanup() {
+        let mut config = valid_config();
+        // Keep the child alive for a short, deterministic interval so the
+        // synchronous reader worker can observe the pseudoconsole output
+        // before cmd.exe exits and closes its side of the pipe.  A bare
+        // `cmd /C echo` is too short-lived under a console test host and can
+        // race the reader even though the GUI-subsystem smoke is healthy.
+        config.args = vec![
+            "/D".into(),
+            "/C".into(),
+            "ping -n 2 127.0.0.1 >nul & echo MENV_CONPTY_OK".into(),
+        ];
+        config.environment = std::env::vars_os().collect();
+        config.timeout = Duration::from_secs(10);
+        config.output_limit_bytes = 64 * 1024;
+        let mut session = ConptySession::start(config).expect("start ConPTY child");
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        let mut output = Vec::new();
+        while !String::from_utf8_lossy(&output).contains("MENV_CONPTY_OK") {
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            if remaining.is_zero() {
+                panic!("ConPTY child did not produce command output before the test deadline");
+            }
+            match session
+                .recv(remaining.min(Duration::from_millis(250)))
+                .expect("receive initial ConPTY event")
+            {
+                Some(ConptyEvent::Output(bytes)) => output.extend(bytes),
+                Some(ConptyEvent::Closed) => panic!("ConPTY output closed before marker"),
+                Some(ConptyEvent::Exited(_)) => {}
+                Some(ConptyEvent::Error(error)) => panic!("ConPTY error: {error}"),
+                None => {}
+            }
+        }
+        assert!(String::from_utf8_lossy(&output).contains("MENV_CONPTY_OK"));
+        assert_eq!(session.wait().expect("wait ConPTY child"), 0);
+        session.shutdown().expect("shutdown ConPTY session");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn live_conpty_output_limit_terminates_the_child() {
+        let mut config = valid_config();
+        config.args = vec!["/C".into(), "echo MENV_CONPTY_OUTPUT_LIMIT".into()];
+        config.environment = std::env::vars_os().collect();
+        config.timeout = Duration::from_secs(10);
+        config.output_limit_bytes = 8;
+        let mut session = ConptySession::start(config).expect("start ConPTY child");
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        let mut saw_limit = false;
+        while std::time::Instant::now() < deadline {
+            match session.recv(Duration::from_millis(250)) {
+                Err(ConptyError::OutputLimitExceeded) => {
+                    saw_limit = true;
+                    break;
+                }
+                Ok(Some(ConptyEvent::Closed)) => break,
+                Ok(Some(ConptyEvent::Output(_))) | Ok(None) => {}
+                Ok(Some(ConptyEvent::Exited(_))) => break,
+                Ok(Some(ConptyEvent::Error(error))) => panic!("unexpected ConPTY event: {error}"),
+                Err(error) => panic!("unexpected ConPTY error: {error}"),
+            }
+        }
+        assert!(saw_limit, "output budget did not terminate the session");
+        let _ = session.wait();
+        session.shutdown().expect("shutdown limited ConPTY session");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn live_conpty_job_terminates_a_spawned_child_tree() {
+        let root =
+            std::env::temp_dir().join(format!("cxszn-menv-conpty-tree-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("create child-tree test directory");
+        let started = root.join("started.txt");
+        let survived = root.join("survived.txt");
+        let child_script = root.join("child.cmd");
+        let parent_script = root.join("parent.cmd");
+        std::fs::write(
+            &child_script,
+            format!(
+                "@echo off\r\nping 127.0.0.1 -n 3 >NUL\r\necho survived>\"{}\"\r\n",
+                survived.display()
+            ),
+        )
+        .expect("write child script");
+        std::fs::write(
+            &parent_script,
+            format!(
+                "@echo off\r\necho started>\"{}\"\r\nstart \"\" /B \"%ComSpec%\" /C call \"{}\"\r\nexit /B 0\r\n",
+                started.display(),
+                child_script.display()
+            ),
+        )
+        .expect("write parent script");
+
+        let mut config = valid_config();
+        config.args = vec![
+            "/C".into(),
+            "call".into(),
+            parent_script.as_os_str().to_owned(),
+        ];
+        config.environment = std::env::vars_os().collect();
+        config.timeout = Duration::from_secs(10);
+        config.output_limit_bytes = 64 * 1024;
+        let mut session = ConptySession::start(config).expect("start ConPTY parent");
+        let _parent_exit = session.wait().expect("wait ConPTY parent");
+
+        let started_deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while !started.exists() && std::time::Instant::now() < started_deadline {
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        assert!(started.is_file(), "spawned child never started");
+        std::thread::sleep(Duration::from_secs(3));
+        assert!(!survived.exists(), "spawned child outlived the ConPTY job");
+        session.shutdown().expect("shutdown child-tree session");
+        std::fs::remove_dir_all(&root).expect("remove child-tree test directory");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn live_conpty_shutdown_cancels_parent_and_child_tree() {
+        let root = std::env::temp_dir().join(format!(
+            "cxszn-menv-conpty-cancel-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("create cancel test directory");
+        let started = root.join("started.txt");
+        let survived = root.join("survived.txt");
+        let child_script = root.join("child.cmd");
+        let parent_script = root.join("parent.cmd");
+        std::fs::write(
+            &child_script,
+            format!(
+                "@echo off\r\nping 127.0.0.1 -n 10 >NUL\r\necho survived>\"{}\"\r\n",
+                survived.display()
+            ),
+        )
+        .expect("write cancel child script");
+        std::fs::write(
+            &parent_script,
+            format!(
+                "@echo off\r\necho started>\"{}\"\r\nstart \"\" /B \"%ComSpec%\" /C call \"{}\"\r\nping 127.0.0.1 -n 30 >NUL\r\n",
+                started.display(),
+                child_script.display()
+            ),
+        )
+        .expect("write cancel parent script");
+
+        let mut config = valid_config();
+        config.args = vec![
+            "/C".into(),
+            "call".into(),
+            parent_script.as_os_str().to_owned(),
+        ];
+        config.environment = std::env::vars_os().collect();
+        config.timeout = Duration::from_secs(30);
+        config.output_limit_bytes = 64 * 1024;
+        let mut session = ConptySession::start(config).expect("start cancellable parent");
+        let started_deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while !started.exists() && std::time::Instant::now() < started_deadline {
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        assert!(started.is_file(), "cancellable child never started");
+        session.shutdown().expect("cancel ConPTY session");
+        std::thread::sleep(Duration::from_secs(3));
+        assert!(
+            !survived.exists(),
+            "cancelled child outlived the ConPTY job"
+        );
+        std::fs::remove_dir_all(&root).expect("remove cancel test directory");
     }
 }

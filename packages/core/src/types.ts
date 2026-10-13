@@ -16,6 +16,7 @@ export type PhpThreadSafety = 'ts' | 'nts' | 'unknown';
 export type OperationStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 export type EnvironmentScope = 'process' | 'user';
 export type EnvironmentChangeAction = 'enable' | 'disable' | 'switch' | 'runtime.add';
+export type OperationAction = EnvironmentChangeAction | 'register' | 'install';
 export type EnvironmentChangeRequestAction = EnvironmentChangeAction | 'runtime.enable' | 'runtime.disable' | 'register_path';
 
 export interface RuntimeIniInfo {
@@ -56,7 +57,7 @@ export interface OperationRecord {
   operationId: string;
   planId: string;
   idempotencyKey: string;
-  action: EnvironmentChangeAction;
+  action: OperationAction;
   runtimeId: string;
   status: OperationStatus;
   createdAt: string;

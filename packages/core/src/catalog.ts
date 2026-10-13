@@ -12,6 +12,7 @@ export interface CatalogSignature {
 
 export interface CatalogTrustKey {
   key_id: string;
+  algorithm?: 'ed25519';
   /** SPKI PEM or a base64/base64url encoded raw Ed25519 public key. */
   public_key: string;
   revoked?: boolean;
@@ -451,6 +452,9 @@ export function verifyCatalogSignature(value: unknown, options: VerifyCatalogOpt
   }
   const key = options.trustRoot.keys.find((candidate) => candidate.key_id === catalog.signature?.key_id);
   if (!key) throw new CoreError('CATALOG_KEY_UNKNOWN', `Catalog signing key ${catalog.signature.key_id} is not trusted.`);
+  if (key.algorithm !== undefined && key.algorithm !== 'ed25519') {
+    throw new CoreError('CATALOG_SIGNATURE_INVALID', `Catalog trust key ${key.key_id} uses an unsupported algorithm.`);
+  }
   if (key.revoked === true) throw new CoreError('CATALOG_KEY_REVOKED', `Catalog signing key ${key.key_id} is revoked.`);
   if (key.not_before !== undefined && nowMs < Date.parse(parseTimestamp(key.not_before, `trustRoot.${key.key_id}.not_before`))) throw new CoreError('CATALOG_KEY_REVOKED', `Catalog signing key ${key.key_id} is not active yet.`);
   if (key.not_after !== undefined && nowMs >= Date.parse(parseTimestamp(key.not_after, `trustRoot.${key.key_id}.not_after`))) throw new CoreError('CATALOG_KEY_REVOKED', `Catalog signing key ${key.key_id} has expired.`);

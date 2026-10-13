@@ -41,8 +41,12 @@ if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
 }
 
 $schemaPath = Join-Path $RepoRoot 'catalog\schema\runtime-catalog.schema.json'
+$trustRootPath = Join-Path $RepoRoot 'catalog\trust\runtime-root.json'
+$officialCatalogPath = Join-Path $RepoRoot 'catalog\manifests\php-windows-official.json'
 $fixturePath = Join-Path $RepoRoot 'catalog\fixtures\php-manifest.fixture.json'
 $schemaText = Get-Content -LiteralPath $schemaPath -Raw
+$trustRoot = Read-JsonFile $trustRootPath
+$officialCatalog = Read-JsonFile $officialCatalogPath
 $fixtureText = Get-Content -LiteralPath $fixturePath -Raw
 $schema = Read-JsonFile $schemaPath
 $fixture = Read-JsonFile $fixturePath
@@ -54,6 +58,22 @@ Require ($schemaText -match 'not_for_download') 'Catalog schema must model non-d
 Require ($schemaText -match 'revoked_artifact_ids') 'Catalog schema must model artifact revocation.'
 Require ($schemaText -match 'sha256') 'Catalog schema must require an artifact SHA-256 digest.'
 Require ($schemaText -match 'redirect_hosts') 'Catalog schema must constrain redirect hosts.'
+
+Require ([string]$trustRoot.schema_version -eq '1') 'Runtime trust root schema_version must be 1.'
+Require ([string]$trustRoot.purpose -eq 'runtime-catalog') 'Runtime trust root purpose must be runtime-catalog.'
+$trustKeys = @($trustRoot.keys)
+Require ($trustKeys.Count -gt 0) 'Runtime trust root must contain at least one key.'
+foreach ($trustKey in $trustKeys) {
+    Require ([string]$trustKey.algorithm -eq 'ed25519') "Runtime trust key must use Ed25519: $($trustKey.key_id)"
+    Require ([string]$trustKey.public_key -match '^[A-Za-z0-9_-]{43}$') "Runtime trust key must contain a raw Ed25519 public key: $($trustKey.key_id)"
+}
+Require ($officialCatalog.fixture -eq $false) 'Official PHP catalog must not be marked as a fixture.'
+Require ([string]$officialCatalog.signature.algorithm -eq 'ed25519') 'Official PHP catalog must use an Ed25519 signature.'
+Require (@($officialCatalog.artifacts).Count -gt 0) 'Official PHP catalog must contain artifacts.'
+foreach ($officialArtifact in @($officialCatalog.artifacts)) {
+    Require ([string]$officialArtifact.source.host -eq 'downloads.php.net') "Official PHP catalog source host is not fixed: $($officialArtifact.artifact_id)"
+    Require ([string]$officialArtifact.source.artifact_path -match '^/~windows/releases/[A-Za-z0-9][A-Za-z0-9._+-]*\.zip$') "Official PHP catalog path is not fixed: $($officialArtifact.artifact_id)"
+}
 
 Require ([string]$fixture.schema_version -eq '1') 'Fixture schema_version must be 1.'
 Require ([bool]$fixture.fixture) 'PHP manifest fixture must be marked fixture=true.'
