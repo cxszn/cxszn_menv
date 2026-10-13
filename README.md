@@ -1,4 +1,99 @@
-# MEnv 0.0.2 developer preview
+# MEnv · Windows 开发环境管理器
+
+**在一个面板中查看本机环境，下载、登记并切换 PHP 版本。**
+
+MEnv 面向需要管理多个本地开发环境的 Windows 开发者，目前重点提供 PHP 多版本管理。
+你可以从已验证的官方来源清单下载 PHP，也可以登记已有的 `php.exe`，在确认后启用所需版本。
+面板分别显示安装来源、启用状态和健康状态，帮助你看清“电脑上有哪些环境”和“当前启用了哪个版本”。
+
+[下载 EXE 安装包](https://github.com/cxszn/cxszn_menv/releases/download/v0.0.2/cxszn_menv_0.0.2_x64-setup.exe)
+· [下载 ZIP 程序包](https://github.com/cxszn/cxszn_menv/releases/download/v0.0.2/cxszn_menv_0.0.2_windows-x64.zip)
+· [版本发布页](https://github.com/cxszn/cxszn_menv/releases/tag/v0.0.2)
+· [详细使用说明](./docs/windows-preview.zh-CN.md)
+
+> 当前版本为 **0.0.2 未签名开发者预览版**，首发支持 **Windows 11 x64**。
+> PHP 提供版本管理；Node.js、Python 和 MySQL 客户端目前仅支持只读检测。
+
+## MEnv 能做什么
+
+| 使用场景 | 对应能力 |
+| --- | --- |
+| 了解电脑上已经装了哪些开发环境 | 扫描 PHP、Node.js、Python 和 MySQL 客户端，查看路径、版本和状态 |
+| 为不同项目准备 PHP 版本 | 下载应用清单中可用的 PHP 构建，或登记已有的 `php.exe` |
+| 选择当前使用的 PHP | 查看变更计划并确认启用；切换结果对新终端生效 |
+| 检查 PHP 配置 | 只读查看 `php.ini`、检查格式，并在确认后创建备份 |
+| 使用命令行或接入 AI 工具 | 提供 JSON CLI、本机 stdio MCP 和操作 Skill；写操作仍需确认 |
+
+安装、登记和启用是不同操作：新安装或新登记的 PHP 默认未启用。
+应用只维护自己的用户级环境入口，外部 PHP 安装目录保持原样。
+
+## 快速上手
+
+### 1. 下载并打开
+
+从上方链接选择一种方式：
+
+- **EXE 安装包**：按安装向导完成当前用户安装，再打开 MEnv。
+- **ZIP 程序包**：解压后运行 `cxszn-menv.exe`；电脑需要已安装 Microsoft Edge WebView2 Runtime。
+
+EXE 内嵌 WebView2 引导程序，缺少 Runtime 时仍需联网获取。ZIP 是免安装程序包，
+数据仍保存在当前用户的 `%LOCALAPPDATA%\cxszn-menv`，不会随解压目录自动迁移。
+
+### 2. 找到或准备 PHP
+
+打开左侧 **“运行时”**。没有扫描历史时会自动进行首次扫描，之后可点击 **“重新扫描”**。
+
+| 你的情况 | 操作 |
+| --- | --- |
+| 电脑上已经有 PHP | 在列表中找到它；未检测到时，在“手动登记 PHP”中填写 `php.exe` 的绝对路径，点击“验证路径”，再“确认登记” |
+| 还没有需要的 PHP 版本 | 点击“下载 PHP”，选择可用构建，点击“下载并安装”，核对计划后“确认下载” |
+
+可下载版本以应用中的已验证清单为准；并非 PHP 5.6–8.5 的所有版本和 TS/NTS 组合都有下载入口。
+
+### 3. 确认启用
+
+在目标 PHP 行点击 **“启用”**，核对弹窗中的版本、路径和影响范围，再点击 **“确认启用”**。
+成功后，该行显示 **“当前启用 / 当前版本”**。需要切换时，对另一个 PHP 版本执行同一确认流程。
+
+### 4. 在新终端中验证
+
+新开一个终端，执行：
+
+```powershell
+where.exe php
+php -v
+```
+
+第一条列出找到的 PHP 程序路径，第二条确认当前命中的 PHP 版本。已有终端不会自动切换，
+请使用新窗口或新会话。编辑器内新标签页可能继承编辑器启动时的环境，必要时重新打开编辑器后再验证。
+也可以在 MEnv 的“终端”页创建新会话；内嵌终端的完整用户验收仍在继续。
+
+## 界面示例
+
+以下为 **0.0.2 真实程序截图，使用演示环境数据**，用于说明界面和操作入口；
+图中的路径、版本状态和活动记录不代表本机安装验收结果。下载清单以实际打开应用时为准。
+
+### 总览：查看当前 PHP 与环境状态
+
+集中查看当前启用的 PHP、受管与外部环境数量，以及近期操作记录。
+
+![MEnv 总览：当前 PHP 版本、环境数量与最近活动](./docs/images/menv-overview.jpg)
+
+### 运行时：区分安装来源、启用状态和健康状态
+
+PHP 可以选择版本启用；Node.js、Python 和 MySQL 客户端显示为“仅检测”。
+手动登记入口位于列表下方。
+
+![MEnv 运行时列表：PHP 版本管理与其他运行时只读检测](./docs/images/menv-runtimes.jpg)
+
+### 下载 PHP：先选择构建，再确认安装计划
+
+清单显示版本、架构、TS/NTS、下载大小与维护状态。旧版会显示 legacy/EOL 提示，
+所有下载均需确认安装计划，安装完成后仍保持未启用。
+
+![MEnv PHP 下载清单：可用构建与旧版本风险提示](./docs/images/menv-php-catalog.jpg)
+
+## 实现范围与预览版说明
 
 MEnv 是 Windows 11 优先的多运行时开发环境管理器。`0.0.2` 当前是 unsigned developer preview，交付了 PHP 只读扫描/手动探测、Node/Python/MySQL client 只读扫描、HKCU PATH lease、app-owned shim、共享 Rust application service、Tauri NSIS current-user 安装包、ConPTY 结构化适配器、Ed25519 catalog 信任根/官方 PHP artifact 清单和安全安装器 adapter。Node/Python/MySQL 尚未接入安装、切换或 PATH 接管；macOS 仍只保留扩展契约。
 
@@ -23,7 +118,7 @@ MEnv 是 Windows 11 优先的多运行时开发环境管理器。`0.0.2` 当前�
 - Windows 扫描也增加 MySQL/MariaDB client 只读 RuntimeProvider：仅执行本地 `mysql.exe --version`，不连接服务、不启动服务、不访问数据目录。
 - 扫描默认为只读，状态分离为 availability、ownership、activation、health 和 operation；手动路径只登记元数据，不复制、覆盖或删除原文件。
 - 首次启动在没有历史扫描记录时自动执行一次只读环境扫描；之后保留空环境结果，不反复扫描或自动接管外部运行时。
-- Tauri 面板已支持手动登记 PHP：绝对路径验证后必须确认 plan，登记保持 manual/disabled，不会修改 PATH 或外部文件。
+- Tauri 面板已支持手动登记 PHP：绝对路径验证后必须确认 plan，新登记默认为 manual/disabled；已有同路径记录的启用状态会保留，不会因登记修改 PATH 或外部文件。
 - 手动登记会写入共享 operations 审计记录，使用 plan id 和幂等 key，重试不会重复登记。
 - catalog PHP 安装成功后同样写入 `install` operation，活动日志和状态快照可追踪安装结果。
 - catalog 安装失败会返回明确的 `HASH_MISMATCH`、`SIZE_MISMATCH`、`ARCHIVE_REJECTED`
